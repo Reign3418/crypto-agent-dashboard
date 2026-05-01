@@ -8,6 +8,7 @@
   
   --text-primary: #f8f9fa;
   --text-secondary: #a0a4b8;
+  --text-muted: #6b7280;
   
   --accent-blue: #3b82f6;
   --accent-blue-glow: rgba(59, 130, 246, 0.2);
@@ -36,6 +37,14 @@ body {
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.5;
   overflow-x: hidden;
+  /* Fix 100vh on mobile browsers with bottom bars */
+  height: 100dvh;
+}
+
+#root {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Base Glassmorphism Panel */
@@ -74,7 +83,7 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 4px 12px var(--accent-blue-glow);
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
   filter: brightness(1.1);
 }
@@ -91,7 +100,55 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
 
-.btn-danger:hover {
+.btn-danger:hover:not(:disabled) {
   transform: translateY(-1px);
   filter: brightness(1.1);
+}
+
+/* ── Mobile Responsiveness ─────────────────────────────── */
+
+@media (min-width: 769px) {
+  .mobile-only { display: none !important; }
+}
+
+@media (max-width: 768px) {
+  .desktop-only { display: none !important; }
+  
+  .stack-mobile { flex-direction: column !important; }
+  .grid-stack-mobile { grid-template-columns: 1fr !important; }
+  .full-width-mobile { flex: 1 1 100% !important; max-width: 100% !important; }
+  
+  /* Make panels tighter on mobile */
+  .glass-panel {
+    padding: 16px;
+    border-radius: 12px;
+  }
+  
+  /* App Header specific */
+  .app-header {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px !important;
+  }
+  
+  .nav-tabs {
+    flex: 1 1 100%;
+    overflow-x: auto;
+    padding-bottom: 4px; /* for scrollbar */
+    -webkit-overflow-scrolling: touch;
+    /* hide scrollbar but keep functionality */
+    scrollbar-width: none; 
+  }
+  .nav-tabs::-webkit-scrollbar { display: none; }
+  
+  /* Emergency stop sticky full width on mobile */
+  .emergency-stop-container {
+    width: 100%;
+  }
+  .emergency-stop-container button {
+    width: 100%;
+    justify-content: center;
+    padding: 12px;
+    font-size: 1rem;
+  }
 }

@@ -46,7 +46,9 @@ export default function CandleChart({ symbol, candles }) {
       wickDownColor: '#ef4444',
     });
 
-    candleSeries.setData(candles);
+    // Ensure strict chronological order (oldest first) regardless of API/DB source
+    const sortedCandles = [...candles].sort((a, b) => a.time - b.time);
+    candleSeries.setData(sortedCandles);
     chart.timeScale().fitContent();
     chartRef.current = chart;
 

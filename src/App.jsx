@@ -72,19 +72,19 @@ function App() {
     }}>
 
       {/* ── Fixed Header ──────────────────────────────────────── */}
-      <header style={{
+      <header className="app-header" style={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         padding: '0 28px',
-        height: '64px',
+        minHeight: '64px',
         flexShrink: 0,
         background: 'var(--bg-secondary)',
         borderBottom: '1px solid var(--border-subtle)',
         gap: '20px',
       }}>
         {/* Brand */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+        <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           <div style={{
             width: '10px', height: '10px', borderRadius: '50%',
             background: isHalted ? 'var(--status-danger)' : 'var(--accent-blue)',
@@ -98,7 +98,7 @@ function App() {
         </div>
 
         {/* Tab Nav */}
-        <nav style={{ display: 'flex', gap: '4px', background: 'var(--bg-tertiary)', padding: '4px', borderRadius: '10px' }}>
+        <nav className="nav-tabs" style={{ display: 'flex', gap: '4px', background: 'var(--bg-tertiary)', padding: '4px', borderRadius: '10px' }}>
           {TABS.map(tab => (
             <button
               key={tab.id}
@@ -131,7 +131,7 @@ function App() {
         </nav>
 
         {/* Screen launchers */}
-        <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+        <div className="desktop-only" style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
           {TABS.map((tab, i) => {
             const positions = [
               { left: 0, top: 0 },
@@ -188,20 +188,22 @@ function App() {
         </div>
 
         {/* Emergency Stop */}
-        <button
-          className="btn-danger"
-          onClick={handleEmergencyStop}
-          disabled={isHalted}
-          style={{
-            flexShrink: 0,
-            display: 'flex', alignItems: 'center', gap: '6px',
-            opacity: isHalted ? 0.5 : 1,
-            cursor: isHalted ? 'not-allowed' : 'pointer',
-            fontSize: '0.85rem', padding: '8px 16px'
-          }}
-        >
-          ⚠️ {isHalted ? 'HALTED' : 'Emergency Stop'}
-        </button>
+        <div className="emergency-stop-container">
+          <button
+            className="btn-danger"
+            onClick={handleEmergencyStop}
+            disabled={isHalted}
+            style={{
+              flexShrink: 0,
+              display: 'flex', alignItems: 'center', gap: '6px',
+              opacity: isHalted ? 0.5 : 1,
+              cursor: isHalted ? 'not-allowed' : 'pointer',
+              fontSize: '0.85rem', padding: '8px 16px'
+            }}
+          >
+            ⚠️ {isHalted ? 'HALTED' : 'Emergency Stop'}
+          </button>
+        </div>
       </header>
 
       {/* ── Tab Content (fills remaining viewport exactly) ────── */}
@@ -209,7 +211,7 @@ function App() {
 
         {/* PORTFOLIO TAB */}
         {activeTab === 'portfolio' && (
-          <div style={{
+          <div className="grid-stack-mobile" style={{
             flex: 1, overflow: 'hidden',
             display: 'grid',
             gridTemplateColumns: '1fr 1fr',
@@ -237,7 +239,7 @@ function App() {
 
         {/* AGENT TAB */}
         {activeTab === 'agent' && (
-          <div style={{
+          <div className="grid-stack-mobile" style={{
             flex: 1, overflow: 'hidden',
             display: 'grid',
             gridTemplateColumns: '1fr 420px',

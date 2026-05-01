@@ -28,11 +28,13 @@ async function getCandles(symbol) {
   const res = await fetch(`https://api.gemini.com/v2/candles/${symbol}/1hr`);
   if (!res.ok) return [];
   const data = await res.json();
-  // Returns [timestamp, open, high, low, close, volume] — take last 24 candles (24 hours)
+  // Returns [timestamp, open, high, low, close, volume] — newest first.
+  // We take the last 24 and reverse them so they are chronological (oldest -> newest),
+  // which is strictly required by the lightweight-charts library to render correctly.
   return data.slice(0, 24).map(([time, open, high, low, close, volume]) => ({
     time: Math.floor(time / 1000), // lightweight-charts expects seconds
     open, high, low, close, volume
-  }));
+  })).reverse();
 }
 
 export default async function handler(req, res) {

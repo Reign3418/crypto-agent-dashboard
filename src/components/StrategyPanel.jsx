@@ -207,22 +207,22 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   const enabledCount = strategies.filter(s => s.enabled).length;
 
   return (
-    <div style={{ display: 'flex', gap: '20px', height: '100%' }}>
+    <div className="stack-mobile" style={{ display: 'flex', gap: '20px', height: '100%' }}>
 
       {/* ── Left Column ──────────────────────────────────────────────── */}
-      <div style={{ flex: '0 0 400px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
+      <div className={showForm ? "desktop-only" : "full-width-mobile"} style={{ flex: '0 0 400px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
 
         {/* Strategy List Panel */}
         <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="stack-mobile" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
             <div>
               <h2 style={{ margin: 0 }}>⚡ Strategies</h2>
               <p className="text-muted" style={{ margin: '2px 0 0', fontSize: '0.8rem' }}>
                 {enabledCount} active · {strategies.length} total
               </p>
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button
                 onClick={generateWithAI}
                 disabled={aiGenerating || isHalted}
@@ -370,7 +370,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
 
       {/* ── Right Column: Builder ─────────────────────────────────────── */}
       {showForm ? (
-        <section className="glass-panel" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <section className="glass-panel full-width-mobile" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <h2 style={{ margin: 0 }}>{editing ? '✏️ Edit Strategy' : '+ New Strategy'}</h2>
 
           {/* AI Suggestion Banner */}
@@ -503,7 +503,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
           </div>
         </section>
       ) : (
-        <section className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', opacity: 0.55 }}>
+        <section className="glass-panel desktop-only" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', opacity: 0.55 }}>
           <div style={{ fontSize: '3.5rem' }}>⚡</div>
           <p className="text-muted" style={{ textAlign: 'center', maxWidth: '300px', lineHeight: 1.7 }}>
             Select <strong>+ New</strong> to build a strategy rule, or click <strong>✏️</strong> on a strategy card to edit it.

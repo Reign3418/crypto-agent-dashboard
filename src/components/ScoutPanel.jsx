@@ -174,7 +174,7 @@ export default function ScoutPanel({ isHalted }) {
 
       {/* Report Grid */}
       {report && !loading && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        <div className="grid-stack-mobile" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
           
           {/* Bullish Column */}
           <div>
