@@ -1,0 +1,38 @@
+name: Scout Cron — Every 30 Minutes
+
+on:
+  schedule:
+    # Runs every 30 minutes, 24/7
+    - cron: '*/30 * * * *'
+  # Allow manual trigger from GitHub Actions UI for testing
+  workflow_dispatch:
+
+jobs:
+  run-scout:
+    name: Run Scout & Evaluate Strategies
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Trigger Scout via Cron Endpoint
+        run: |
+          echo "🔭 Starting Scout run at $(date -u)"
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" \
+            -X GET \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --max-time 300 \
+            "${{ secrets.DASHBOARD_URL }}/api/cron")
+          
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n-1)
+          
+          echo "HTTP Status: $HTTP_STATUS"
+          echo "Response: $BODY"
+          
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "❌ Cron job failed with status $HTTP_STATUS"
+            exit 1
+          fi
+          
+          echo "✅ Scout cron complete"
