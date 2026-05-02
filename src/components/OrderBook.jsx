@@ -50,7 +50,8 @@ export default function OrderBook({ symbol = 'btcusd' }) {
         padding: '2px 8px',
         fontSize: '0.8rem',
         fontFamily: 'var(--font-mono)',
-        position: 'relative'
+        position: 'relative',
+        animation: isAsk ? 'flash-red 0.5s ease-out' : 'flash-green 0.5s ease-out'
       }}>
         {/* Depth Bar */}
         <div style={{

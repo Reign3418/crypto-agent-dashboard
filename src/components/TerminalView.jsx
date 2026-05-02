@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import CandleChart from './CandleChart';
 import OrderBook from './OrderBook';
 import TickerTape from './TickerTape';
-import AgentChat from './AgentChat';
+import AINeuralFeed from './AINeuralFeed';
 import ActivityLog from './ActivityLog';
 import PortfolioSummary from './PortfolioSummary';
 
@@ -11,6 +11,40 @@ export default function TerminalView({ isHalted }) {
   const [candles, setCandles] = useState([]);
   const [loadingCandles, setLoadingCandles] = useState(false);
   const [autopilotEnabled, setAutopilotEnabled] = useState(false);
+  const [aiState, setAiState] = useState('IDLE');
+  const [neuralLogs, setNeuralLogs] = useState([]);
+
+  const addNeuralLog = useCallback((text, color) => {
+    const time = new Date().toISOString().split('T')[1].slice(0, 12);
+    setNeuralLogs(prev => [...prev.slice(-40), { time, text, color }]);
+  }, []);
+
+  const runNeuralSimulation = async (executeAction) => {
+    setAiState('PROCESSING');
+    setNeuralLogs([]);
+    
+    addNeuralLog('[SYS] Waking up Gemini 2.5 Flash...', 'var(--text-muted)');
+    await new Promise(r => setTimeout(r, 600));
+    
+    addNeuralLog('[API] Fetching order books for Top 12 movers...', 'var(--accent-blue)');
+    await new Promise(r => setTimeout(r, 1200));
+
+    addNeuralLog('[DB] Cross-referencing DynamoDB for Strategy Rules...', 'var(--text-primary)');
+    await new Promise(r => setTimeout(r, 800));
+
+    addNeuralLog('[AI] Analyzing candlestick patterns & momentum...', 'var(--accent-green)');
+    
+    try {
+      await executeAction();
+      addNeuralLog('[EXEC] Scout cycle complete. Returning to sleep.', 'var(--status-success)');
+    } catch (e) {
+      if (e.message !== 'Cancelled') {
+         addNeuralLog(`[ERR] Execution halted: ${e.message}`, 'var(--status-error)');
+      }
+    } finally {
+      setTimeout(() => setAiState('IDLE'), 2000);
+    }
+  };
 
   // Fetch Autopilot state
   useEffect(() => {
@@ -63,13 +97,10 @@ export default function TerminalView({ isHalted }) {
     
     console.log('[Browser Pinger] Started. Will execute Scout every 30 mins while tab is open.');
     const interval = setInterval(async () => {
-      console.log('[Browser Pinger] Executing scheduled scout cycle...');
-      try {
-        // The browser's native Basic Auth cache should automatically authorize this same-origin fetch.
-        await fetch('/api/scout', { method: 'GET' });
-      } catch (e) {
-        console.error('[Browser Pinger] Scout execution failed:', e);
-      }
+      runNeuralSimulation(async () => {
+        const res = await fetch('/api/scout', { method: 'GET' });
+        if (!res.ok) throw new Error(await res.text());
+      });
     }, 30 * 60 * 1000); // 30 minutes
 
     return () => {
@@ -110,7 +141,16 @@ export default function TerminalView({ isHalted }) {
       </div>
 
       {/* Autopilot & Agent Console */}
-      <div className="terminal-panel" style={{ gridArea: 'autopilot', borderLeft: '1px solid var(--border-subtle)' }}>
+      <div 
+        className="terminal-panel" 
+        style={{ 
+          gridArea: 'autopilot', 
+          borderLeft: '1px solid var(--border-subtle)',
+          boxShadow: aiState === 'PROCESSING' ? 'inset 0 0 20px rgba(34, 197, 94, 0.1)' : 'none',
+          borderColor: aiState === 'PROCESSING' ? 'var(--accent-green)' : 'var(--border-subtle)',
+          transition: 'all 0.3s ease'
+        }}
+      >
         <div className="terminal-header">Command Center</div>
         
         {/* Toggle UI inside Terminal */}
@@ -127,24 +167,31 @@ export default function TerminalView({ isHalted }) {
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button 
-                onClick={async () => {
+                onClick={() => {
                     const btn = document.getElementById('force-btn');
                     btn.disabled = true;
                     btn.innerText = 'Executing...';
-                    try {
-                        const pass = prompt('Enter your dashboard password to manually execute Scout:');
-                        if (!pass) throw new Error('Cancelled');
+                    
+                    const pass = prompt('Enter your dashboard password to manually execute Scout:');
+                    if (!pass) {
+                        btn.disabled = false;
+                        btn.innerText = '⚡ Force Exec';
+                        return;
+                    }
+
+                    runNeuralSimulation(async () => {
                         const res = await fetch('/api/scout', {
                             headers: { 'Authorization': 'Basic ' + btoa('admin:' + pass) }
                         });
-                        if (res.ok) alert('Scout cycle executed successfully! Check Live Feed.');
-                        else alert('Failed: ' + await res.text());
-                    } catch (e) {
-                        if (e.message !== 'Cancelled') alert(e.message);
-                    } finally {
+                        if (res.ok) {
+                            addNeuralLog('[SYS] Fetch successful. Updating Live Feed...', 'var(--text-muted)');
+                        } else {
+                            throw new Error(await res.text());
+                        }
+                    }).finally(() => {
                         btn.disabled = false;
                         btn.innerText = '⚡ Force Exec';
-                    }
+                    });
                 }}
                 id="force-btn"
                 disabled={isHalted || !autopilotEnabled}
@@ -172,9 +219,9 @@ export default function TerminalView({ isHalted }) {
           </div>
         </div>
 
-        {/* Mini Agent Chat */}
+        {/* AINeuralFeed */}
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <AgentChat isHalted={isHalted} miniMode={true} />
+          <AINeuralFeed logs={neuralLogs} isScanning={aiState === 'PROCESSING'} />
         </div>
       </div>
 
