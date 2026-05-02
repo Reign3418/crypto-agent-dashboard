@@ -125,7 +125,11 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
       await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ missionDirective: val })
+        body: JSON.stringify({ 
+            missionDirective: val,
+            missionCompletions: 0,
+            missionStartTime: new Date().toISOString()
+        })
       });
     } catch (err) {
       console.error("Failed to save mission directive", err);

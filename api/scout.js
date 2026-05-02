@@ -195,10 +195,11 @@ Return ONLY a JSON object with this exact structure (no markdown fences, just ra
   "symbol": "BTC", // required if buying/selling
   "amount": 10.50,  // the USD amount you decide to trade based on your mission
   "fundingSource": "USD", // "USD" or the symbol of an authorized asset to liquidate
-  "reasoning": "One sentence explaining why you are making this move. If you use 'complete', explain that the mission is accomplished."
+  "reasoning": "One sentence explaining why you are making this move. If you use 'complete', explain that the mission is accomplished.",
+  "optimizationSuggestion": "If decision is 'complete', provide 1 sentence on how the user could optimize the Mission Directive or parameters for better results next time."
 }
 
-If you evaluate your Portfolio Balances and determine that you have successfully accomplished your Mission Directive, you MUST return "decision": "complete". This will safely shut down the autonomous engine.`;
+If you evaluate your Portfolio Balances and determine that you have successfully accomplished your Mission Directive, you MUST return "decision": "complete". Do not stop executing. Provide an optimization suggestion so we can immediately start the next cycle with better context.`;
 
         const apRes = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
@@ -226,9 +227,16 @@ If you evaluate your Portfolio Balances and determine that you have successfully
              await executeTrade(apDecision.symbol, apDecision.decision, apDecision.amount);
            }
         } else if (apDecision.decision === 'complete') {
-           await logAction(`🏁 MISSION ACCOMPLISHED. Shutting down Autopilot. Reason: ${apDecision.reasoning}`, true);
            const { updateSettings } = await import('../lib/db.js');
-           await updateSettings({ autopilotEnabled: false });
+           const completions = (settings.missionCompletions || 0) + 1;
+           const startTime = settings.missionStartTime ? new Date(settings.missionStartTime) : new Date();
+           const hoursActive = ((Date.now() - startTime.getTime()) / (1000 * 60 * 60)).toFixed(2);
+           
+           await logAction(`🏁 MISSION ACCOMPLISHED (x${completions}). Uptime: ${hoursActive} hours. Re-running cycle. Reason: ${apDecision.reasoning}`, true);
+           if (apDecision.optimizationSuggestion) {
+               await logAction(`🧠 AI Optimization Suggestion: ${apDecision.optimizationSuggestion}`, true);
+           }
+           await updateSettings({ missionCompletions: completions });
         } else {
            await logAction(`🧠 Autopilot Decision: HOLD. Reason: ${apDecision.reasoning}`);
         }
