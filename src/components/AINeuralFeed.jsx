@@ -20,7 +20,7 @@ export default function AINeuralFeed({ logs, isScanning }) {
         justifyContent: 'space-between',
         background: 'rgba(0,0,0,0.2)'
       }}>
-        <span>&gt; AI_NEURAL_FEED_v2.5</span>
+        <span>&gt; CIPHER_NEURAL_LINK_v2.5</span>
         <span className={isScanning ? 'blink' : ''}>{isScanning ? 'PROCESSING...' : 'IDLE'}</span>
       </div>
       <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '12px', fontSize: '0.75rem', color: '#10b981' }}>

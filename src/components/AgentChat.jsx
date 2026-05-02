@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 export default function AgentChat({ isHalted, miniMode = false }) {
   const [messages, setMessages] = useState([
-    { role: 'agent', content: 'Hello! I am your personal trading assistant. I am currently monitoring your portfolio and the broader crypto market. \n\nHow can I help you today? You can ask me to analyze a specific asset, monitor a spread, or execute a trade.' }
+    { role: 'agent', content: 'Hello! I am CIPHER, your autonomous portfolio manager. I am currently monitoring your portfolio and the broader crypto market. \n\nHow can I help you today? You can ask me to analyze a specific asset, monitor a spread, or execute a trade.' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -36,8 +36,8 @@ export default function AgentChat({ isHalted, miniMode = false }) {
     <aside className={miniMode ? "" : "glass-panel"} style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: miniMode ? 0 : '24px', borderRadius: miniMode ? 0 : '16px' }}>
       {!miniMode && (
         <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '16px', marginBottom: '16px' }}>
-          <h2>AI Trading Assistant</h2>
-          <p className="text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>Gemini Advanced Model</p>
+          <h2>CIPHER Core Chat</h2>
+          <p className="text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>Gemini 2.5 Flash</p>
         </div>
       )}
       

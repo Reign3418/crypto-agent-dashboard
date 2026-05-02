@@ -93,7 +93,7 @@ export default function ScoutPanel({ isHalted }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            🔭 Scout — Market Recon
+            🔭 CIPHER Intel
           </h2>
           {generatedAt && (
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.82rem' }}>

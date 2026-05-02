@@ -151,7 +151,7 @@ export default function TerminalView({ isHalted }) {
           transition: 'all 0.3s ease'
         }}
       >
-        <div className="terminal-header">Command Center</div>
+        <div className="terminal-header">CIPHER Command Center</div>
         
         {/* Toggle UI inside Terminal */}
         <div style={{ 
@@ -161,7 +161,7 @@ export default function TerminalView({ isHalted }) {
         }}>
           <div>
             <span style={{ fontWeight: 'bold', color: autopilotEnabled ? 'var(--status-success)' : 'var(--text-secondary)' }}>
-              {autopilotEnabled ? '● AUTOPILOT ACTIVE' : '○ AUTOPILOT OFFLINE'}
+              {autopilotEnabled ? '● CIPHER AUTOPILOT ACTIVE' : '○ CIPHER AUTOPILOT OFFLINE'}
             </span>
             <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Executes 1 trade per 30m (Browser Pinger Active)</div>
           </div>

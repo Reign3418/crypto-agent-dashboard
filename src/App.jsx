@@ -94,7 +94,7 @@ function App() {
             transition: 'all 0.3s'
           }} />
           <span style={{ fontWeight: 700, fontSize: '1.05rem', letterSpacing: '-0.01em' }}>
-            Personal Trading Assistant
+            CIPHER Core
           </span>
           <span className="text-muted" style={{ fontSize: '0.8rem' }}>gemini-2.5-flash</span>
         </div>

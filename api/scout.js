@@ -163,13 +163,13 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
       const { getSettings } = await import('../lib/db.js');
       const settings = await getSettings();
       if (settings.autopilotEnabled) {
-        await logAction('🚀 Global Autopilot is ON. AI evaluating the market for a trade opportunity...');
+        await logAction('🚀 CIPHER Core Autopilot is ON. AI evaluating the market for a trade opportunity...');
         
         const { executeTrade, getPortfolioBalances } = await import('../lib/trade.js');
         const balances = await getPortfolioBalances().catch(() => ({}));
         const liquidatable = settings.liquidatableAssets || [];
 
-        const autopilotPrompt = `You are an elite cryptocurrency trader running an autonomous fund.
+        const autopilotPrompt = `You are CIPHER (Crypto Intelligence & Portfolio Heuristics Engine/Router), an elite autonomous fund manager.
 You have permission to execute exactly one trade with a maximum size of $2.00.
 Here is the latest Scout market report for the top movers:
 ${JSON.stringify(reportForStorage, null, 2)}
