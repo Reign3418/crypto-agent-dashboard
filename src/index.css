@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 :root {
   /* Premium Dark Mode Palette */
@@ -21,6 +21,7 @@
   
   /* Typography */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', Consolas, Monaco, monospace;
 }
 
 * {
@@ -151,4 +152,88 @@ h1, h2, h3, h4, h5, h6 {
     padding: 12px;
     font-size: 1rem;
   }
+}
+
+/* ── Pro Terminal Overhaul ───────────────────────────────── */
+
+.terminal-grid {
+  display: grid;
+  grid-template-areas:
+    "ticker ticker"
+    "chart autopilot"
+    "chart orderbook"
+    "logs portfolio";
+  grid-template-columns: 2fr 1fr;
+  grid-template-rows: auto auto 1fr 1fr;
+  gap: 2px; /* Zero padding aesthetic, separated by 2px gap lines */
+  background: var(--bg-primary); /* black grid lines */
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 1024px) {
+  .terminal-grid {
+    grid-template-areas:
+      "ticker"
+      "chart"
+      "autopilot"
+      "orderbook"
+      "portfolio"
+      "logs";
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 400px auto 300px auto 400px;
+    overflow-y: auto;
+  }
+}
+
+.terminal-panel {
+  background: var(--bg-secondary);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.terminal-header {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--bg-primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Ticker Tape Animation */
+.ticker-wrap {
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  padding: 4px 0;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+.ticker-move {
+  display: inline-block;
+  white-space: nowrap;
+  padding-left: 100%;
+  animation: ticker 40s linear infinite;
+}
+
+.ticker-move:hover {
+  animation-play-state: paused;
+}
+
+@keyframes ticker {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-100%, 0, 0); }
 }

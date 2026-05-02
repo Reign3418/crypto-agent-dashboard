@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function AgentChat({ isHalted }) {
+export default function AgentChat({ isHalted, miniMode = false }) {
   const [messages, setMessages] = useState([
     { role: 'agent', content: 'Hello! I am your personal trading assistant. I am currently monitoring your portfolio and the broader crypto market. \n\nHow can I help you today? You can ask me to analyze a specific asset, monitor a spread, or execute a trade.' }
   ]);
@@ -33,13 +33,15 @@ export default function AgentChat({ isHalted }) {
   };
 
   return (
-    <aside className="glass-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '16px', marginBottom: '16px' }}>
-        <h2>AI Trading Assistant</h2>
-        <p className="text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>Gemini Advanced Model</p>
-      </div>
+    <aside className={miniMode ? "" : "glass-panel"} style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: miniMode ? 0 : '24px', borderRadius: miniMode ? 0 : '16px' }}>
+      {!miniMode && (
+        <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '16px', marginBottom: '16px' }}>
+          <h2>AI Trading Assistant</h2>
+          <p className="text-muted" style={{ margin: 0, fontSize: '0.9rem' }}>Gemini Advanced Model</p>
+        </div>
+      )}
       
-      <div style={{ flex: 1, background: 'var(--bg-tertiary)', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, background: miniMode ? 'transparent' : 'var(--bg-tertiary)', borderRadius: '12px', padding: miniMode ? 0 : '16px', display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
           {messages.map((msg, idx) => (
@@ -77,7 +79,7 @@ export default function AgentChat({ isHalted }) {
         </div>
 
         {/* Input Area */}
-        <div style={{ marginTop: '20px', display: 'flex', gap: '8px', borderTop: '1px solid var(--border-subtle)', paddingTop: '16px' }}>
+        <div style={{ marginTop: '20px', display: 'flex', gap: '8px', borderTop: miniMode ? 'none' : '1px solid var(--border-subtle)', paddingTop: '16px' }}>
           <input 
             type="text" 
             value={input}

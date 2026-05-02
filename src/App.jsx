@@ -6,19 +6,21 @@ import AgentChat from './components/AgentChat';
 import MarketIntelligence from './components/MarketIntelligence';
 import ScoutPanel from './components/ScoutPanel';
 import StrategyPanel from './components/StrategyPanel';
+import TerminalView from './components/TerminalView';
 
 const TABS = [
-  { id: 'portfolio', label: '📊 Portfolio', hash: '#portfolio' },
-  { id: 'scout',     label: '🔭 Scout',     hash: '#scout' },
-  { id: 'strategy',  label: '⚡ Strategy',  hash: '#strategy' },
-  { id: 'agent',     label: '🤖 Agent',     hash: '#agent' },
-  { id: 'logs',      label: '📋 Logs',      hash: '#logs' },
+  { id: 'terminal',  label: '🖥️ Terminal',   hash: '#terminal' },
+  { id: 'portfolio', label: '📊 Portfolio',  hash: '#portfolio' },
+  { id: 'scout',     label: '🔭 Scout',      hash: '#scout' },
+  { id: 'strategy',  label: '⚡ Strategy',   hash: '#strategy' },
+  { id: 'agent',     label: '🤖 Agent',      hash: '#agent' },
+  { id: 'logs',      label: '📋 Logs',       hash: '#logs' },
 ];
 
 function getInitialTab() {
   const hash = window.location.hash;
   const match = TABS.find(t => t.hash === hash);
-  return match ? match.id : 'portfolio';
+  return match ? match.id : 'terminal';
 }
 
 function App() {
@@ -208,6 +210,13 @@ function App() {
 
       {/* ── Tab Content (fills remaining viewport exactly) ────── */}
       <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+
+        {/* TERMINAL TAB */}
+        {activeTab === 'terminal' && (
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <TerminalView isHalted={isHalted} />
+          </div>
+        )}
 
         {/* PORTFOLIO TAB */}
         {activeTab === 'portfolio' && (
