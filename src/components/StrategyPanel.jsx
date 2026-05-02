@@ -286,7 +286,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
             </h3>
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.8rem', maxWidth: '250px' }}>
               {autopilotEnabled 
-                ? "Active. AI will continuously execute its Mission Directive via 5m background scans." 
+                ? "Active. AI will continuously execute its Mission Directive via 60s hyper-scrubs." 
                 : "Inactive. Turn on for fully autonomous trading."}
             </p>
           </div>

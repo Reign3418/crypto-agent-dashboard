@@ -161,8 +161,10 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
     // ── Global AI Autopilot ────────────────────────────────────────────────
     try {
       const { getSettings, getRecentLogs } = await import('../lib/db.js');
+      const { fetchLiveNews } = await import('../lib/news.js');
       const settings = await getSettings();
       const recentLogs = await getRecentLogs().catch(() => []);
+      const liveNews = await fetchLiveNews();
       if (settings.autopilotEnabled) {
         await logAction('🚀 CIPHER Core Autopilot is ON. AI evaluating the market for a trade opportunity...');
         
@@ -184,6 +186,10 @@ Your current Portfolio Balances (Available Capital):
 ${JSON.stringify(balances, null, 2)}
 
 You are authorized to sell any of the following assets to free up USD capital if needed: ${liquidatable.length > 0 ? liquidatable.join(', ') : 'NONE'}
+
+LATEST GLOBAL CRYPTO NEWS HEADLINES:
+${JSON.stringify(liveNews, null, 2)}
+Cross-reference these global headlines with the price action. Is a drop caused by a panic-inducing headline, or is a surge driven by major partnerships?
 
 NEURAL FEEDBACK LOOP (Your Recent History):
 ${JSON.stringify(recentLogs.slice(0, 5), null, 2)}

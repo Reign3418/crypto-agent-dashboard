@@ -113,17 +113,32 @@ export default function TerminalView({ isHalted }) {
   useEffect(() => {
     if (!autopilotEnabled || isHalted) return;
     
-    console.log('[Browser Pinger] Started. Will execute Scout every 5 mins while tab is open.');
-    const interval = setInterval(async () => {
-      runNeuralSimulation(async () => {
-        const res = await fetch('/api/scout', { method: 'GET' });
-        if (!res.ok) throw new Error(await res.text());
-      });
-    }, 5 * 60 * 1000); // 5 minutes
+    console.log('[Browser Pinger] Started. Will execute Scout every 60s while tab is open.');
+    
+    let isRunning = true;
+    
+    const loop = async () => {
+      if (!isRunning) return;
+      try {
+        await runNeuralSimulation(async () => {
+          const res = await fetch('/api/scout', { method: 'GET' });
+          if (!res.ok) throw new Error(await res.text());
+        });
+      } catch (err) {
+        console.error('[Browser Pinger] Error:', err);
+      }
+      
+      if (isRunning) {
+        setTimeout(loop, 60 * 1000); // 60 seconds cooldown after completion
+      }
+    };
+    
+    // Start the first loop immediately
+    loop();
 
     return () => {
       console.log('[Browser Pinger] Stopped.');
-      clearInterval(interval);
+      isRunning = false;
     };
   }, [autopilotEnabled, isHalted]);
 
@@ -184,7 +199,7 @@ export default function TerminalView({ isHalted }) {
             <span style={{ fontWeight: 'bold', color: autopilotEnabled ? 'var(--status-success)' : 'var(--text-secondary)' }}>
               {autopilotEnabled ? '● CIPHER AUTOPILOT ACTIVE' : '○ CIPHER AUTOPILOT OFFLINE'}
             </span>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Mission Directive Active (5m Scan Interval)</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Mission Directive Active (60s Hyper-Scrub)</div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button 
