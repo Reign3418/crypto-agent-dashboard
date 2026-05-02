@@ -70,7 +70,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { prompt } = req.body;
+  const { prompt, history } = req.body;
   if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
 
   if (!process.env.GEMINI_AI_API_KEY) {
@@ -131,7 +131,14 @@ export default async function handler(req, res) {
     const systemInstruction = "You are an elite cryptocurrency trading assistant. You have access to real-time market data and the user's Gemini portfolio. Analyze data intelligently and answer concisely.";
 
     // 2. The Agentic Loop
-    let contents = [{ role: 'user', parts: [{ text: prompt }] }];
+    let contents = [];
+    if (history && Array.isArray(history)) {
+        contents = history.map(msg => ({
+            role: msg.role === 'agent' ? 'model' : 'user',
+            parts: [{ text: msg.content }]
+        }));
+    }
+    contents.push({ role: 'user', parts: [{ text: prompt }] });
     let finalResponseText = '';
     let isAgentDone = false;
     let maxLoops = 5; // Prevent infinite loops

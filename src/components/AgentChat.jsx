@@ -19,7 +19,7 @@ export default function AgentChat({ isHalted, miniMode = false }) {
       const res = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: userMessage.content })
+        body: JSON.stringify({ prompt: userMessage.content, history: messages })
       });
 
       const data = await res.json();
@@ -76,6 +76,7 @@ export default function AgentChat({ isHalted, miniMode = false }) {
             </div>
           )}
 
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Input Area */}
