@@ -7,7 +7,7 @@ export default function TickerTape() {
     let active = true;
     const fetchTickers = async () => {
       try {
-        const res = await fetch('https://api.gemini.com/v1/pricefeed');
+        const res = await fetch('/api/pricefeed');
         if (!res.ok) return;
         const data = await res.json();
         if (!active) return;

@@ -8,7 +8,7 @@ export default function OrderBook({ symbol = 'btcusd' }) {
     let active = true;
     const fetchBook = async () => {
       try {
-        const res = await fetch(`https://api.gemini.com/v1/book/${symbol}?limit_bids=15&limit_asks=15`);
+        const res = await fetch(`/api/book?symbol=${symbol}`);
         if (!res.ok) throw new Error('Network response was not ok');
         const data = await res.json();
         if (active) {
