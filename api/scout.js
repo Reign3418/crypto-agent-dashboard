@@ -191,15 +191,16 @@ If you have enough USD or are just doing a normal SELL, set "fundingSource" to "
 
 Return ONLY a JSON object with this exact structure (no markdown fences, just raw JSON):
 {
-  "decision": "buy" | "sell" | "hold" | "complete",
+  "decision": "buy" | "sell" | "hold" | "complete" | "fail",
   "symbol": "BTC", // required if buying/selling
   "amount": 10.50,  // the USD amount you decide to trade based on your mission
   "fundingSource": "USD", // "USD" or the symbol of an authorized asset to liquidate
-  "reasoning": "One sentence explaining why you are making this move. If you use 'complete', explain that the mission is accomplished.",
+  "reasoning": "One sentence explaining why you are making this move. If you use 'complete' or 'fail', explain the outcome.",
   "optimizationSuggestion": "If decision is 'complete', provide 1 sentence on how the user could optimize the Mission Directive or parameters for better results next time."
 }
 
-If you evaluate your Portfolio Balances and determine that you have successfully accomplished your Mission Directive, you MUST return "decision": "complete". Do not stop executing. Provide an optimization suggestion so we can immediately start the next cycle with better context.`;
+If you evaluate your Portfolio Balances and determine that you have successfully accomplished your Mission Directive, you MUST return "decision": "complete". Do not stop executing. Provide an optimization suggestion so we can immediately start the next cycle with better context.
+If you evaluate your Portfolio Balances and determine that your Mission Directive has completely failed (e.g., severe drawdown, out of capital, or impossible market conditions), you MUST return "decision": "fail". This will trigger an emergency halt to protect remaining funds.`;
 
         const apRes = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
@@ -237,6 +238,10 @@ If you evaluate your Portfolio Balances and determine that you have successfully
                await logAction(`🧠 AI Optimization Suggestion: ${apDecision.optimizationSuggestion}`, true);
            }
            await updateSettings({ missionCompletions: completions });
+        } else if (apDecision.decision === 'fail') {
+           await logAction(`🚨 MISSION FAILED. Emergency Halt Initiated. Reason: ${apDecision.reasoning}`, true);
+           const { updateSettings } = await import('../lib/db.js');
+           await updateSettings({ autopilotEnabled: false });
         } else {
            await logAction(`🧠 Autopilot Decision: HOLD. Reason: ${apDecision.reasoning}`);
         }
