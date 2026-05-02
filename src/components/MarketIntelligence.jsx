@@ -26,7 +26,7 @@ export default function MarketIntelligence({ isHalted }) {
         const res = await fetch('/api/agent', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: "Do not use tools. In 2 concise sentences, give a professional market intelligence briefing on the current crypto market — what is leading, what is lagging, and what traders are watching. Be analytical, not generic." }),
+          body: JSON.stringify({ prompt: "Use the getScoutReport tool to fetch live market data, then in 2 concise sentences, give a professional market intelligence briefing on the current crypto market — what is leading, what is lagging, and what traders are watching. Be analytical, not generic." }),
           signal: controller.signal,
         });
 
