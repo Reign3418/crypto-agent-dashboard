@@ -160,8 +160,9 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
 
     // ── Global AI Autopilot ────────────────────────────────────────────────
     try {
-      const { getSettings } = await import('../lib/db.js');
+      const { getSettings, getRecentLogs } = await import('../lib/db.js');
       const settings = await getSettings();
+      const recentLogs = await getRecentLogs().catch(() => []);
       if (settings.autopilotEnabled) {
         await logAction('🚀 CIPHER Core Autopilot is ON. AI evaluating the market for a trade opportunity...');
         
@@ -183,6 +184,10 @@ Your current Portfolio Balances (Available Capital):
 ${JSON.stringify(balances, null, 2)}
 
 You are authorized to sell any of the following assets to free up USD capital if needed: ${liquidatable.length > 0 ? liquidatable.join(', ') : 'NONE'}
+
+NEURAL FEEDBACK LOOP (Your Recent History):
+${JSON.stringify(recentLogs.slice(0, 5), null, 2)}
+Review your recent Neural Feed logs above. If you see recent trade errors or failures, you MUST learn from them and adapt your strategy. Do not repeat failed actions.
 
 Analyze this data and your mission directive. You have full discretion over trade sizing. You may choose to trade any asset or HOLD.
 If you want to BUY an asset but your USD balance is low, you MAY choose to liquidate a permitted asset. 
