@@ -14,6 +14,32 @@ export default function CandleChart({ symbol, candles }) {
       chartRef.current = null;
     }
 
+    // Defensive data parsing
+    const uniqueCandles = [];
+    const seen = new Set();
+    const sortedCandles = [...candles].sort((a, b) => Number(a.time) - Number(b.time));
+    
+    for (const c of sortedCandles) {
+      const time = Number(c.time);
+      const open = Number(c.open);
+      const high = Number(c.high);
+      const low = Number(c.low);
+      const close = Number(c.close);
+      
+      if (
+        !isNaN(time) && !isNaN(open) && !isNaN(high) && !isNaN(low) && !isNaN(close) &&
+        !seen.has(time)
+      ) {
+        seen.add(time);
+        uniqueCandles.push({ time, open, high, low, close });
+      }
+    }
+
+    if (uniqueCandles.length === 0) return;
+
+    // Prevent 'Value is null' crash if container isn't fully laid out yet (width = 0)
+    const initialWidth = containerRef.current.clientWidth || 300;
+
     const chart = createChart(containerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
@@ -23,18 +49,14 @@ export default function CandleChart({ symbol, candles }) {
         vertLines: { color: 'rgba(255,255,255,0.05)' },
         horzLines: { color: 'rgba(255,255,255,0.05)' },
       },
-      crosshair: {
-        mode: 1,
-      },
-      rightPriceScale: {
-        borderColor: 'rgba(255,255,255,0.1)',
-      },
+      crosshair: { mode: 1 },
+      rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
       timeScale: {
         borderColor: 'rgba(255,255,255,0.1)',
         timeVisible: true,
         secondsVisible: false,
       },
-      width: containerRef.current.clientWidth,
+      width: initialWidth,
       height: 280,
     });
 
@@ -46,15 +68,18 @@ export default function CandleChart({ symbol, candles }) {
       wickDownColor: '#ef4444',
     });
 
-    // Ensure strict chronological order (oldest first) regardless of API/DB source
-    const sortedCandles = [...candles].sort((a, b) => a.time - b.time);
-    candleSeries.setData(sortedCandles);
-    chart.timeScale().fitContent();
+    try {
+      candleSeries.setData(uniqueCandles);
+      chart.timeScale().fitContent();
+    } catch (e) {
+      console.error('Chart error:', e);
+    }
+    
     chartRef.current = chart;
 
     // Handle resize
     const handleResize = () => {
-      if (containerRef.current && chartRef.current) {
+      if (containerRef.current && chartRef.current && containerRef.current.clientWidth > 0) {
         chartRef.current.applyOptions({ width: containerRef.current.clientWidth });
       }
     };
