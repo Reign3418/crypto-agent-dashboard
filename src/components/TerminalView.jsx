@@ -57,6 +57,27 @@ export default function TerminalView({ isHalted }) {
     return () => clearInterval(interval);
   }, [symbol, fetchCandles]);
 
+  // Browser-based Auto-Pinger to bypass Vercel 1/day Cron limit
+  useEffect(() => {
+    if (!autopilotEnabled || isHalted) return;
+    
+    console.log('[Browser Pinger] Started. Will execute Scout every 30 mins while tab is open.');
+    const interval = setInterval(async () => {
+      console.log('[Browser Pinger] Executing scheduled scout cycle...');
+      try {
+        // The browser's native Basic Auth cache should automatically authorize this same-origin fetch.
+        await fetch('/api/scout', { method: 'GET' });
+      } catch (e) {
+        console.error('[Browser Pinger] Scout execution failed:', e);
+      }
+    }, 30 * 60 * 1000); // 30 minutes
+
+    return () => {
+      console.log('[Browser Pinger] Stopped.');
+      clearInterval(interval);
+    };
+  }, [autopilotEnabled, isHalted]);
+
   return (
     <div className="terminal-grid">
       <TickerTape />
@@ -102,7 +123,7 @@ export default function TerminalView({ isHalted }) {
             <span style={{ fontWeight: 'bold', color: autopilotEnabled ? 'var(--status-success)' : 'var(--text-secondary)' }}>
               {autopilotEnabled ? '● AUTOPILOT ACTIVE' : '○ AUTOPILOT OFFLINE'}
             </span>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Executes 1 trade per day (Cron Limit)</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Executes 1 trade per 30m (Browser Pinger Active)</div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button 
