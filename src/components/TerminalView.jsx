@@ -39,7 +39,7 @@ export default function TerminalView({ isHalted }) {
   const fetchCandles = useCallback(async (sym) => {
     setLoadingCandles(true);
     try {
-      const res = await fetch(`/api/candles?symbol=${sym}&timeframe=1hr`);
+      const res = await fetch(`/api/proxy?route=candles&symbol=${sym}&timeframe=1hr`);
       if (res.ok) {
         const data = await res.json();
         setCandles(data);

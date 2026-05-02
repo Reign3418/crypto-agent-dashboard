@@ -7,7 +7,7 @@ export default function TickerTape() {
     let active = true;
     const fetchTickers = async () => {
       try {
-        const res = await fetch('/api/pricefeed');
+        const res = await fetch('/api/proxy?route=pricefeed');
         if (!res.ok) return;
         const data = await res.json();
         if (!active) return;

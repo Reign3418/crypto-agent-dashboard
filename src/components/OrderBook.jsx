@@ -8,7 +8,7 @@ export default function OrderBook({ symbol = 'btcusd' }) {
     let active = true;
     const fetchBook = async () => {
       try {
-        const res = await fetch(`/api/book?symbol=${symbol}`);
+        const res = await fetch(`/api/proxy?route=book&symbol=${symbol}`);
         if (!res.ok) throw new Error('Network response was not ok');
         const data = await res.json();
         if (active) {
