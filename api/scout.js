@@ -191,12 +191,14 @@ If you have enough USD or are just doing a normal SELL, set "fundingSource" to "
 
 Return ONLY a JSON object with this exact structure (no markdown fences, just raw JSON):
 {
-  "decision": "buy" | "sell" | "hold",
+  "decision": "buy" | "sell" | "hold" | "complete",
   "symbol": "BTC", // required if buying/selling
   "amount": 10.50,  // the USD amount you decide to trade based on your mission
   "fundingSource": "USD", // "USD" or the symbol of an authorized asset to liquidate
-  "reasoning": "One sentence explaining why you are making this move based on your mission."
-}`;
+  "reasoning": "One sentence explaining why you are making this move. If you use 'complete', explain that the mission is accomplished."
+}
+
+If you evaluate your Portfolio Balances and determine that you have successfully accomplished your Mission Directive, you MUST return "decision": "complete". This will safely shut down the autonomous engine.`;
 
         const apRes = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
@@ -223,6 +225,10 @@ Return ONLY a JSON object with this exact structure (no markdown fences, just ra
              await logAction(`🧠 Autopilot Decision: ${apDecision.decision.toUpperCase()} $${apDecision.amount} of ${apDecision.symbol}. Reason: ${apDecision.reasoning}`, true);
              await executeTrade(apDecision.symbol, apDecision.decision, apDecision.amount);
            }
+        } else if (apDecision.decision === 'complete') {
+           await logAction(`🏁 MISSION ACCOMPLISHED. Shutting down Autopilot. Reason: ${apDecision.reasoning}`, true);
+           const { updateSettings } = await import('../lib/db.js');
+           await updateSettings({ autopilotEnabled: false });
         } else {
            await logAction(`🧠 Autopilot Decision: HOLD. Reason: ${apDecision.reasoning}`);
         }
