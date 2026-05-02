@@ -178,6 +178,7 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
 
 Your MISSION DIRECTIVE is:
 "${missionDirective}"
+${settings.coachNotes ? `\nCOACH'S OVERRIDE NOTES:\n"${settings.coachNotes}"\n(You MUST prioritize these tactical notes in your immediate decisions.)\n` : ''}
 
 Here is the latest Scout market report for the top movers:
 ${JSON.stringify(reportForStorage, null, 2)}

@@ -65,6 +65,8 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   const [autopilotEnabled, setAutopilotEnabled] = useState(false);
   const [liquidatableAssets, setLiquidatableAssets] = useState([]);
   const [missionDirective, setMissionDirective] = useState('');
+  const [coachNotes, setCoachNotes] = useState('');
+  const [cognitiveRollups, setCognitiveRollups] = useState([]);
 
   const fetchStrategies = useCallback(async () => {
     try {
@@ -79,6 +81,8 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
       setAutopilotEnabled(dataSettings.autopilotEnabled || false);
       setLiquidatableAssets(dataSettings.liquidatableAssets || []);
       setMissionDirective(dataSettings.missionDirective || 'Make 10 trades and secure $25 in profit.');
+      setCoachNotes(dataSettings.coachNotes || '');
+      setCognitiveRollups(dataSettings.cognitiveRollups || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, []);
@@ -133,6 +137,19 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
       });
     } catch (err) {
       console.error("Failed to save mission directive", err);
+    }
+  };
+
+  const saveCoachNotes = async (e) => {
+    const val = e.target.value;
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coachNotes: val })
+      });
+    } catch (err) {
+      console.error("Failed to save coach notes", err);
     }
   };
 
@@ -332,6 +349,26 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
               }}
             />
             <p className="text-muted" style={{ margin: '12px 0 4px', fontSize: '0.8rem' }}>
+              <strong>Coach's Notes / Live Overrides:</strong> Give CIPHER immediate tactical advice.
+            </p>
+            <textarea
+              value={coachNotes}
+              onChange={(e) => setCoachNotes(e.target.value)}
+              onBlur={saveCoachNotes}
+              placeholder="e.g. Stop trading BTC, the spread is too high. Focus on ETH."
+              style={{
+                width: '100%',
+                background: 'rgba(59, 130, 246, 0.05)',
+                border: '1px solid var(--accent-blue)',
+                color: 'var(--text-primary)',
+                padding: '10px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                resize: 'vertical',
+                minHeight: '50px'
+              }}
+            />
+            <p className="text-muted" style={{ margin: '12px 0 4px', fontSize: '0.8rem' }}>
               <strong>Safe Pool:</strong> Select which assets CIPHER is allowed to autonomously sell to free up capital.
             </p>
           </div>
@@ -356,6 +393,31 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
                 {sym}
               </button>
             ))}
+          </div>
+        </section>
+
+        {/* Cognitive Rollups Panel */}
+        <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div>
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              🧠 Cognitive Rollups (Learning Diary)
+            </h3>
+            <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.8rem' }}>
+              CIPHER's hourly summary of how it is adapting its algorithm to the market.
+            </p>
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
+            {cognitiveRollups.length === 0 ? (
+              <div style={{ padding: '10px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>No rollups generated yet.</div>
+            ) : (
+              cognitiveRollups.map((rollup, idx) => (
+                <div key={idx} style={{ padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px', borderLeft: '3px solid var(--accent-purple)' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{new Date(rollup.timestamp).toLocaleString()}</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>{rollup.text}</div>
+                </div>
+              ))
+            )}
           </div>
         </section>
 

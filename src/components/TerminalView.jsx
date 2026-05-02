@@ -136,9 +136,20 @@ export default function TerminalView({ isHalted }) {
     // Start the first loop immediately
     loop();
 
+    // Hourly Cognitive Rollup trigger
+    const rollupInterval = setInterval(async () => {
+      try {
+        console.log('[Browser Pinger] Triggering Hourly Cognitive Rollup...');
+        await fetch('/api/rollup', { method: 'POST' });
+      } catch (e) {
+        console.error('Rollup error:', e);
+      }
+    }, 60 * 60 * 1000); // 1 hour
+
     return () => {
       console.log('[Browser Pinger] Stopped.');
       isRunning = false;
+      clearInterval(rollupInterval);
     };
   }, [autopilotEnabled, isHalted]);
 
