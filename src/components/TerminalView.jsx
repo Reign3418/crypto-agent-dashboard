@@ -105,7 +105,7 @@ export default function TerminalView({ isHalted }) {
           {loadingCandles && candles.length === 0 && (
             <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: 'var(--text-muted)' }}>Loading...</div>
           )}
-          {candles.length > 0 && <CandleChart data={candles} />}
+          {candles.length > 0 && <CandleChart symbol={symbol.toUpperCase()} candles={candles} />}
         </div>
       </div>
 
