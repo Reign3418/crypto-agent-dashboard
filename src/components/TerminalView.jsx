@@ -26,7 +26,25 @@ export default function TerminalView({ isHalted }) {
     addNeuralLog('[SYS] Waking up Gemini 2.5 Flash...', 'var(--text-muted)');
     await new Promise(r => setTimeout(r, 600));
     
-    addNeuralLog('[API] Fetching order books for Top 12 movers...', 'var(--accent-blue)');
+    addNeuralLog('[API] Performing Pre-Scout Market Sweep...', 'var(--accent-blue)');
+    try {
+      const res = await fetch('/api/proxy?route=pricefeed');
+      if (res.ok) {
+        const data = await res.json();
+        const usdPairs = data
+          .filter(t => t.pair.toLowerCase().endsWith('usd'))
+          .sort((a, b) => parseFloat(b.price) * parseFloat(b.percentChange24h) - parseFloat(a.price) * parseFloat(a.percentChange24h));
+        
+        if (usdPairs.length > 0) {
+          const target = usdPairs[0].pair.toLowerCase();
+          setSymbol(target);
+          addNeuralLog(`[SCOUT] Target acquired: ${target.toUpperCase()}. Feeding to CIPHER Core...`, 'var(--accent-green)');
+        }
+      }
+    } catch (e) {
+      console.warn('Pre-scout failed', e);
+    }
+
     await new Promise(r => setTimeout(r, 1200));
 
     addNeuralLog('[DB] Cross-referencing DynamoDB for Strategy Rules...', 'var(--text-primary)');
@@ -125,6 +143,9 @@ export default function TerminalView({ isHalted }) {
               border: 'none', fontWeight: 'bold', outline: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)' 
             }}
           >
+            {!['btcusd', 'ethusd', 'solusd', 'pepeusd', 'dogeusd'].includes(symbol) && (
+              <option value={symbol}>{symbol.replace(/usd$/i, '').toUpperCase()}/USD</option>
+            )}
             <option value="btcusd">BTC/USD</option>
             <option value="ethusd">ETH/USD</option>
             <option value="solusd">SOL/USD</option>
