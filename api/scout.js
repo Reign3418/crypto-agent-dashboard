@@ -169,8 +169,13 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
         const balances = await getPortfolioBalances().catch(() => ({}));
         const liquidatable = settings.liquidatableAssets || [];
 
+        const missionDirective = settings.missionDirective || 'Make 10 trades and secure $25 in profit.';
+
         const autopilotPrompt = `You are CIPHER (Crypto Intelligence & Portfolio Heuristics Engine/Router), an elite autonomous fund manager.
-You have permission to execute exactly one trade with a maximum size of $2.00.
+
+Your MISSION DIRECTIVE is:
+"${missionDirective}"
+
 Here is the latest Scout market report for the top movers:
 ${JSON.stringify(reportForStorage, null, 2)}
 
@@ -179,8 +184,8 @@ ${JSON.stringify(balances, null, 2)}
 
 You are authorized to sell any of the following assets to free up USD capital if needed: ${liquidatable.length > 0 ? liquidatable.join(', ') : 'NONE'}
 
-Analyze this data. Choose the single best asset to trade right now (either BUY if you see strong momentum, or SELL if you see a crash coming).
-If you want to BUY an asset but your USD balance is under $2.00, you MAY choose to liquidate a permitted asset. 
+Analyze this data and your mission directive. You have full discretion over trade sizing. You may choose to trade any asset or HOLD.
+If you want to BUY an asset but your USD balance is low, you MAY choose to liquidate a permitted asset. 
 To do this, set "fundingSource" to the symbol of the authorized asset you want to sell to fund this buy (e.g., "ETH"). You can ONLY use assets listed in the authorized list above.
 If you have enough USD or are just doing a normal SELL, set "fundingSource" to "USD".
 
@@ -188,9 +193,9 @@ Return ONLY a JSON object with this exact structure (no markdown fences, just ra
 {
   "decision": "buy" | "sell" | "hold",
   "symbol": "BTC", // required if buying/selling
-  "amount": 2.00,  // required if buying/selling, max 2.00
+  "amount": 10.50,  // the USD amount you decide to trade based on your mission
   "fundingSource": "USD", // "USD" or the symbol of an authorized asset to liquidate
-  "reasoning": "One sentence explaining why you are making this move."
+  "reasoning": "One sentence explaining why you are making this move based on your mission."
 }`;
 
         const apRes = await ai.models.generateContent({

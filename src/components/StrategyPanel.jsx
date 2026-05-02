@@ -64,6 +64,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   const [aiSuggestionNote, setAiSuggestionNote] = useState(null);
   const [autopilotEnabled, setAutopilotEnabled] = useState(false);
   const [liquidatableAssets, setLiquidatableAssets] = useState([]);
+  const [missionDirective, setMissionDirective] = useState('');
 
   const fetchStrategies = useCallback(async () => {
     try {
@@ -77,6 +78,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
       if (Array.isArray(dataStrats)) setStrategies(dataStrats);
       setAutopilotEnabled(dataSettings.autopilotEnabled || false);
       setLiquidatableAssets(dataSettings.liquidatableAssets || []);
+      setMissionDirective(dataSettings.missionDirective || 'Make 10 trades and secure $25 in profit.');
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, []);
@@ -114,6 +116,19 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
       console.error(e);
       // Revert if failed
       setLiquidatableAssets(liquidatableAssets);
+    }
+  };
+
+  const saveMissionDirective = async (e) => {
+    const val = e.target.value;
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ missionDirective: val })
+      });
+    } catch (err) {
+      console.error("Failed to save mission directive", err);
     }
   };
 
@@ -267,7 +282,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
             </h3>
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.8rem', maxWidth: '250px' }}>
               {autopilotEnabled 
-                ? "Active. AI will autonomously execute one $2 trade per 30m Scout cycle." 
+                ? "Active. AI will continuously execute its Mission Directive via 5m background scans." 
                 : "Inactive. Turn on for fully autonomous trading."}
             </p>
           </div>
@@ -292,7 +307,28 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
               💼 Capital Management
             </h3>
             <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.8rem' }}>
-              If the AI wants to buy but USD is empty, select which assets it is allowed to autonomously sell to free up capital.
+              Define CIPHER's core objective. The AI will read this directive before every autonomous execution.
+            </p>
+            <textarea
+              value={missionDirective}
+              onChange={(e) => setMissionDirective(e.target.value)}
+              onBlur={saveMissionDirective}
+              placeholder="e.g. Make 10 trades and secure $25 in profit."
+              style={{
+                width: '100%',
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-primary)',
+                padding: '10px',
+                borderRadius: '8px',
+                fontSize: '0.85rem',
+                marginTop: '10px',
+                resize: 'vertical',
+                minHeight: '60px'
+              }}
+            />
+            <p className="text-muted" style={{ margin: '12px 0 4px', fontSize: '0.8rem' }}>
+              <strong>Safe Pool:</strong> Select which assets CIPHER is allowed to autonomously sell to free up capital.
             </p>
           </div>
           

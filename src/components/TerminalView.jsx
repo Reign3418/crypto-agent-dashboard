@@ -113,13 +113,13 @@ export default function TerminalView({ isHalted }) {
   useEffect(() => {
     if (!autopilotEnabled || isHalted) return;
     
-    console.log('[Browser Pinger] Started. Will execute Scout every 30 mins while tab is open.');
+    console.log('[Browser Pinger] Started. Will execute Scout every 5 mins while tab is open.');
     const interval = setInterval(async () => {
       runNeuralSimulation(async () => {
         const res = await fetch('/api/scout', { method: 'GET' });
         if (!res.ok) throw new Error(await res.text());
       });
-    }, 30 * 60 * 1000); // 30 minutes
+    }, 5 * 60 * 1000); // 5 minutes
 
     return () => {
       console.log('[Browser Pinger] Stopped.');
@@ -184,7 +184,7 @@ export default function TerminalView({ isHalted }) {
             <span style={{ fontWeight: 'bold', color: autopilotEnabled ? 'var(--status-success)' : 'var(--text-secondary)' }}>
               {autopilotEnabled ? '● CIPHER AUTOPILOT ACTIVE' : '○ CIPHER AUTOPILOT OFFLINE'}
             </span>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Executes 1 trade per 30m (Browser Pinger Active)</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Mission Directive Active (5m Scan Interval)</div>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button 
