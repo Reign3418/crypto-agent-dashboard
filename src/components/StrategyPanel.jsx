@@ -63,6 +63,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiSuggestionNote, setAiSuggestionNote] = useState(null);
   const [autopilotEnabled, setAutopilotEnabled] = useState(false);
+  const [liquidatableAssets, setLiquidatableAssets] = useState([]);
 
   const fetchStrategies = useCallback(async () => {
     try {
@@ -75,6 +76,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
       
       if (Array.isArray(dataStrats)) setStrategies(dataStrats);
       setAutopilotEnabled(dataSettings.autopilotEnabled || false);
+      setLiquidatableAssets(dataSettings.liquidatableAssets || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, []);
@@ -91,6 +93,27 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
     } catch (e) {
       console.error(e);
       setAutopilotEnabled(!newVal);
+    }
+  };
+
+  const toggleLiquidatableAsset = async (assetSym) => {
+    const current = new Set(liquidatableAssets);
+    if (current.has(assetSym)) current.delete(assetSym);
+    else current.add(assetSym);
+    
+    const newVal = Array.from(current);
+    setLiquidatableAssets(newVal);
+    
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ liquidatableAssets: newVal })
+      });
+    } catch (e) {
+      console.error(e);
+      // Revert if failed
+      setLiquidatableAssets(liquidatableAssets);
     }
   };
 
@@ -252,19 +275,48 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
             onClick={toggleAutopilot}
             disabled={isHalted}
             style={{
-              padding: '8px 16px',
-              borderRadius: '20px',
-              border: 'none',
-              fontWeight: 'bold',
-              cursor: isHalted ? 'not-allowed' : 'pointer',
+              padding: '8px 20px', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer',
               background: autopilotEnabled ? 'var(--accent-green)' : 'var(--bg-tertiary)',
-              color: autopilotEnabled ? '#000' : 'var(--text-muted)',
               transition: 'all 0.2s',
               opacity: isHalted ? 0.5 : 1
             }}
           >
             {autopilotEnabled ? 'ON' : 'OFF'}
           </button>
+        </section>
+
+        {/* Capital Management Panel */}
+        <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div>
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              💼 Capital Management
+            </h3>
+            <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.8rem' }}>
+              If the AI wants to buy but USD is empty, select which assets it is allowed to autonomously sell to free up capital.
+            </p>
+          </div>
+          
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '4px' }}>
+            {ASSETS.map(sym => (
+              <button
+                key={sym}
+                onClick={() => toggleLiquidatableAsset(sym)}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '16px',
+                  border: liquidatableAssets.includes(sym) ? '1px solid var(--accent-blue)' : '1px solid var(--border-subtle)',
+                  background: liquidatableAssets.includes(sym) ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-tertiary)',
+                  color: liquidatableAssets.includes(sym) ? 'var(--accent-blue)' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {sym}
+              </button>
+            ))}
+          </div>
         </section>
 
         {/* Strategy List Panel */}
