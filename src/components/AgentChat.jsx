@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 export default function AgentChat({ isHalted, miniMode = false }) {
   const [messages, setMessages] = useState([
@@ -6,6 +6,11 @@ export default function AgentChat({ isHalted, miniMode = false }) {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
