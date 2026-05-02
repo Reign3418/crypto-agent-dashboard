@@ -102,21 +102,53 @@ export default function TerminalView({ isHalted }) {
             <span style={{ fontWeight: 'bold', color: autopilotEnabled ? 'var(--status-success)' : 'var(--text-secondary)' }}>
               {autopilotEnabled ? '● AUTOPILOT ACTIVE' : '○ AUTOPILOT OFFLINE'}
             </span>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Executes 1 trade per 30m</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Executes 1 trade per day (Cron Limit)</div>
           </div>
-          <button 
-            onClick={toggleAutopilot}
-            disabled={isHalted}
-            style={{
-              padding: '4px 12px', border: '1px solid', borderRadius: '4px', cursor: 'pointer',
-              background: autopilotEnabled ? 'var(--status-success)' : 'transparent',
-              color: autopilotEnabled ? '#000' : 'var(--text-secondary)',
-              borderColor: autopilotEnabled ? 'var(--status-success)' : 'var(--border-subtle)',
-              fontFamily: 'var(--font-mono)', fontSize: '0.8rem', fontWeight: 'bold'
-            }}
-          >
-            {autopilotEnabled ? 'ON' : 'OFF'}
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+                onClick={async () => {
+                    const btn = document.getElementById('force-btn');
+                    btn.disabled = true;
+                    btn.innerText = 'Executing...';
+                    try {
+                        const pass = prompt('Enter your dashboard password to manually execute Scout:');
+                        if (!pass) throw new Error('Cancelled');
+                        const res = await fetch('/api/scout', {
+                            headers: { 'Authorization': 'Basic ' + btoa('admin:' + pass) }
+                        });
+                        if (res.ok) alert('Scout cycle executed successfully! Check Live Feed.');
+                        else alert('Failed: ' + await res.text());
+                    } catch (e) {
+                        if (e.message !== 'Cancelled') alert(e.message);
+                    } finally {
+                        btn.disabled = false;
+                        btn.innerText = '⚡ Force Exec';
+                    }
+                }}
+                id="force-btn"
+                disabled={isHalted || !autopilotEnabled}
+                style={{
+                padding: '4px 8px', border: '1px solid var(--accent-blue)', borderRadius: '4px', cursor: (isHalted || !autopilotEnabled) ? 'not-allowed' : 'pointer',
+                background: 'rgba(59, 130, 246, 0.1)', color: 'var(--accent-blue)',
+                fontFamily: 'var(--font-mono)', fontSize: '0.75rem', fontWeight: 'bold', opacity: (isHalted || !autopilotEnabled) ? 0.5 : 1
+                }}
+            >
+                ⚡ Force Exec
+            </button>
+            <button 
+                onClick={toggleAutopilot}
+                disabled={isHalted}
+                style={{
+                padding: '4px 12px', border: '1px solid', borderRadius: '4px', cursor: 'pointer',
+                background: autopilotEnabled ? 'var(--status-success)' : 'transparent',
+                color: autopilotEnabled ? '#000' : 'var(--text-secondary)',
+                borderColor: autopilotEnabled ? 'var(--status-success)' : 'var(--border-subtle)',
+                fontFamily: 'var(--font-mono)', fontSize: '0.8rem', fontWeight: 'bold'
+                }}
+            >
+                {autopilotEnabled ? 'ON' : 'OFF'}
+            </button>
+          </div>
         </div>
 
         {/* Mini Agent Chat */}
