@@ -141,7 +141,7 @@ function App() {
               { left: 0, top: Math.floor(screen.height / 2) },
               { left: Math.floor(screen.width / 2), top: Math.floor(screen.height / 2) },
             ];
-            const pos = positions[i];
+            const pos = positions[i % positions.length];
             const w = Math.floor(screen.width / 2);
             const h = Math.floor(screen.height / 2);
             return (
