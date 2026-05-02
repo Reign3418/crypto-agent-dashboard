@@ -61,18 +61,38 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   const [showForm, setShowForm] = useState(false);
   const [triggerHistory, setTriggerHistory] = useState([]);
   const [aiGenerating, setAiGenerating] = useState(false);
-  const [aiSuggestionNote, setAiSuggestionNote] = useState(null); // non-null = form was AI-generated
+  const [aiSuggestionNote, setAiSuggestionNote] = useState(null);
+  const [autopilotEnabled, setAutopilotEnabled] = useState(false);
 
   const fetchStrategies = useCallback(async () => {
     try {
-      const res = await fetch('/api/strategies');
-      if (res.ok) {
-        const data = await res.json();
-        setStrategies(data);
-      }
+      const [resStrats, resSettings] = await Promise.all([
+        fetch('/api/strategies'),
+        fetch('/api/settings')
+      ]);
+      const dataStrats = await resStrats.json();
+      const dataSettings = await resSettings.json();
+      
+      if (Array.isArray(dataStrats)) setStrategies(dataStrats);
+      setAutopilotEnabled(dataSettings.autopilotEnabled || false);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, []);
+
+  const toggleAutopilot = async () => {
+    const newVal = !autopilotEnabled;
+    setAutopilotEnabled(newVal);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autopilotEnabled: newVal })
+      });
+    } catch (e) {
+      console.error(e);
+      setAutopilotEnabled(!newVal);
+    }
+  };
 
   const fetchTriggerHistory = useCallback(async () => {
     try {
@@ -210,6 +230,42 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
 
       {/* ── Left Column ──────────────────────────────────────────────── */}
       <div className={showForm ? "desktop-only" : "full-width-mobile"} style={{ flex: '0 0 400px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
+
+        {/* Global Autopilot Toggle */}
+        <section className="glass-panel" style={{ 
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+          border: autopilotEnabled ? '1px solid var(--accent-green)' : '1px solid var(--border-subtle)',
+          background: autopilotEnabled ? 'rgba(34, 197, 94, 0.05)' : 'var(--bg-secondary)',
+          transition: 'all 0.3s ease'
+        }}>
+          <div>
+            <h3 style={{ margin: 0, color: autopilotEnabled ? 'var(--accent-green)' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {autopilotEnabled ? '🚀' : '✈️'} AI Autopilot
+            </h3>
+            <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.8rem', maxWidth: '250px' }}>
+              {autopilotEnabled 
+                ? "Active. AI will autonomously execute one $2 trade per 30m Scout cycle." 
+                : "Inactive. Turn on for fully autonomous trading."}
+            </p>
+          </div>
+          <button 
+            onClick={toggleAutopilot}
+            disabled={isHalted}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '20px',
+              border: 'none',
+              fontWeight: 'bold',
+              cursor: isHalted ? 'not-allowed' : 'pointer',
+              background: autopilotEnabled ? 'var(--accent-green)' : 'var(--bg-tertiary)',
+              color: autopilotEnabled ? '#000' : 'var(--text-muted)',
+              transition: 'all 0.2s',
+              opacity: isHalted ? 0.5 : 1
+            }}
+          >
+            {autopilotEnabled ? 'ON' : 'OFF'}
+          </button>
+        </section>
 
         {/* Strategy List Panel */}
         <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>

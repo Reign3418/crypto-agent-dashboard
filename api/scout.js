@@ -158,6 +158,50 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
       console.warn('[Scout] Strategy auto-eval failed (non-fatal):', evalErr.message);
     }
 
+    // ── Global AI Autopilot ────────────────────────────────────────────────
+    try {
+      const { getSettings } = await import('../lib/db.js');
+      const settings = await getSettings();
+      if (settings.autopilotEnabled) {
+        await logAction('🚀 Global Autopilot is ON. AI evaluating the market for a trade opportunity...');
+        
+        const autopilotPrompt = `You are an elite cryptocurrency trader running an autonomous fund.
+You have permission to execute exactly one trade with a maximum size of $2.00.
+Here is the latest Scout market report for the top 12 movers:
+${JSON.stringify(reportForStorage, null, 2)}
+
+Analyze this data. Choose the single best asset to trade right now (either BUY if you see strong momentum/news, or SELL if you see a crash coming).
+If the entire market looks too chaotic or lacks a clear setup, it is okay to hold cash and do nothing.
+
+Return ONLY a JSON object with this exact structure (no markdown fences, just raw JSON):
+{
+  "decision": "buy" | "sell" | "hold",
+  "symbol": "BTC", // required if buying/selling
+  "amount": 2.00,  // required if buying/selling, max 2.00
+  "reasoning": "One sentence explaining why you are making this move."
+}`;
+
+        const apRes = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: autopilotPrompt
+        });
+        
+        let rawApText = apRes.text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
+        const apDecision = JSON.parse(rawApText);
+        
+        if (apDecision.decision === 'buy' || apDecision.decision === 'sell') {
+           await logAction(`🧠 Autopilot Decision: ${apDecision.decision.toUpperCase()} $${apDecision.amount} of ${apDecision.symbol}. Reason: ${apDecision.reasoning}`, true);
+           const { executeTrade } = await import('../lib/trade.js');
+           await executeTrade(apDecision.symbol, apDecision.decision, apDecision.amount);
+        } else {
+           await logAction(`🧠 Autopilot Decision: HOLD. Reason: ${apDecision.reasoning}`);
+        }
+      }
+    } catch (apErr) {
+      console.warn('[Autopilot Error]:', apErr);
+      await logAction(`❌ Autopilot error: ${apErr.message}`);
+    }
+
     return res.status(200).json({
       generatedAt,
       report: finalReport // Return full report with candles to the frontend
