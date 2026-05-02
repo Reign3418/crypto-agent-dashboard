@@ -111,6 +111,19 @@ export default async function handler(req, res) {
         {
           name: 'evaluateStrategies',
           description: 'Evaluate all active trading strategies against the current market. Returns which strategies have their conditions met and which are not triggered. Use when the user asks if any strategies are triggered, what their rules are doing, or for a strategy status check.',
+        },
+        {
+          name: 'executeTrade',
+          description: 'Execute a real, live buy or sell trade on the Gemini Exchange. The backend has a hardcoded safety cap of $2.00 max per trade, so the USD amount MUST be <= 2.00. Use this when the user explicitly asks to buy or sell an asset.',
+          parameters: {
+            type: 'OBJECT',
+            properties: {
+              symbol: { type: 'STRING', description: 'The trading pair symbol without USD, e.g. BTC or ETH' },
+              side: { type: 'STRING', description: 'Either "buy" or "sell"' },
+              usdAmount: { type: 'NUMBER', description: 'The dollar amount to trade. MUST NOT EXCEED 2.00.' }
+            },
+            required: ['symbol', 'side', 'usdAmount']
+          }
         }
       ]
     }];
@@ -172,6 +185,19 @@ export default async function handler(req, res) {
                     const evalData = await evalRes.json();
                     functionResult = evalData;
                     await logAction(`✅ Strategy eval complete: ${evalData.triggered?.length || 0} triggered out of ${evalData.evaluated} active.`);
+                } else if (functionCall.name === 'executeTrade') {
+                    const { symbol, side, usdAmount } = functionCall.args;
+                    await logAction(`🤖 Agent attempting to ${side.toUpperCase()} $${usdAmount} of ${symbol}...`, true);
+                    
+                    const { executeTrade } = await import('../lib/trade.js');
+                    const tradeData = await executeTrade(symbol, side, usdAmount);
+                    
+                    functionResult = { 
+                      success: true, 
+                      executed_amount: tradeData.executed_amount,
+                      price: tradeData.price,
+                      order_id: tradeData.order_id
+                    };
                 }
             } catch (apiError) {
                 await logAction(`Tool Error (${functionCall.name}): ${apiError.message}`);

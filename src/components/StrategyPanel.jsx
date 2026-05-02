@@ -15,9 +15,8 @@ const CONDITION_TYPES = [
 
 const ACTION_TYPES = [
   { value: 'alert',    label: '🔔 Alert only (log to activity feed)' },
-  { value: 'buy',      label: '🟢 Buy (requires Trading key — Phase 6)', disabled: true },
-  { value: 'sell_pct', label: '🔴 Sell % of holdings (Phase 6)', disabled: true },
-  { value: 'sell_all', label: '⛔ Sell all (Phase 6)', disabled: true },
+  { value: 'buy',      label: '🟢 Buy' },
+  { value: 'sell',     label: '🔴 Sell' },
 ];
 
 const BLANK_CONDITION = { type: 'price_drop_pct', value: 5, window: '24h' };
@@ -481,9 +480,36 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
           {/* Action */}
           <div>
             <label style={labelStyle}>Action When Triggered</label>
-            <select value={form.action.type} onChange={e => setField('action', { ...form.action, type: e.target.value })} style={inputStyle}>
-              {ACTION_TYPES.map(a => <option key={a.value} value={a.value} disabled={a.disabled}>{a.label}</option>)}
-            </select>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <select 
+                value={form.action.type} 
+                onChange={e => setField('action', { ...form.action, type: e.target.value })} 
+                style={{ ...inputStyle, flex: 2 }}
+              >
+                {ACTION_TYPES.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+              </select>
+              
+              {form.action.type !== 'alert' && (
+                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0 12px', flex: 1 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>$</span>
+                  <input 
+                    type="number" 
+                    min="0.10" 
+                    max="2.00" 
+                    step="0.10"
+                    value={form.action.amount || ''} 
+                    onChange={e => setField('action', { ...form.action, amount: parseFloat(e.target.value) })} 
+                    placeholder="2.00"
+                    style={{ ...inputStyle, border: 'none', background: 'transparent', padding: '10px 4px', width: '100%' }} 
+                  />
+                </div>
+              )}
+            </div>
+            {form.action.type !== 'alert' && (
+              <p className="text-muted" style={{ margin: '6px 0 0', fontSize: '0.8rem' }}>
+                Note: Hardcoded safety limit caps trades at $2.00 max.
+              </p>
+            )}
           </div>
 
           {/* Notes */}
