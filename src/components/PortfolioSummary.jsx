@@ -48,6 +48,9 @@ export default function PortfolioSummary({ minimal = false }) {
       }
     }
     fetchPortfolio();
+
+    const interval = setInterval(fetchPortfolio, 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) return (
