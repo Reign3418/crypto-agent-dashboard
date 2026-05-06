@@ -445,6 +445,47 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
           </div>
         </section>
 
+        {/* Deep Dive Audit Panel */}
+        <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '3px solid var(--accent-red)' }}>
+          <div>
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-red)' }}>
+              ⚠️ Portfolio Drain Audit
+            </h3>
+            <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.8rem' }}>
+              Run a complete, raw database scan of every trade and fee to determine exactly where capital is bleeding.
+            </p>
+          </div>
+          <button 
+            onClick={async () => {
+              if (!window.confirm("This will scan the entire database and run a brutal, honest AI analysis on our failures. Proceed?")) return;
+              try {
+                alert("Scanning database... this may take a moment.");
+                const res = await fetch('/api/rollup?task=analyze', { method: 'POST' });
+                const json = await res.json();
+                if (json.analysis) {
+                  alert("Raw DB Results:\\n" + JSON.stringify(json.data, null, 2) + "\\n\\nAI Analysis:\\n" + json.analysis);
+                  console.log("Deep Dive Audit Data:", json);
+                } else {
+                  alert("Audit failed: " + JSON.stringify(json));
+                }
+              } catch (e) {
+                alert("Error running audit: " + e.message);
+              }
+            }}
+            style={{
+              padding: '10px',
+              borderRadius: '8px',
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: '1px solid var(--accent-red)',
+              color: 'var(--accent-red)',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            Run Deep Dive Audit Now
+          </button>
+        </section>
+
         {/* Macro Trends Ledgers Panel */}
         <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div>
