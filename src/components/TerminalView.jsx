@@ -119,6 +119,29 @@ export default function TerminalView({ isHalted }) {
     
     const loop = async () => {
       if (!isRunning) return;
+
+      // 1. Check if we need to run background tasks (Mission/Rollup)
+      const now = Date.now();
+      const lastRollup = parseInt(localStorage.getItem('lastRollupTime') || '0', 10);
+      const lastMission = parseInt(localStorage.getItem('lastMissionTime') || '0', 10);
+
+      if (now - lastMission > 15 * 60 * 1000) {
+        try {
+          console.log('[Browser Pinger] Triggering 15-Min Mission Assessment...');
+          await fetch('/api/rollup?task=mission', { method: 'POST' });
+          localStorage.setItem('lastMissionTime', now.toString());
+        } catch (e) { console.error(e); }
+      }
+
+      if (now - lastRollup > 60 * 60 * 1000) {
+        try {
+          console.log('[Browser Pinger] Triggering Hourly Cognitive Rollup...');
+          await fetch('/api/rollup?task=rollup', { method: 'POST' });
+          localStorage.setItem('lastRollupTime', now.toString());
+        } catch (e) { console.error(e); }
+      }
+
+      // 2. Run the 60s Hyper-Scrub
       try {
         await runNeuralSimulation(async () => {
           const res = await fetch('/api/scout', { method: 'GET' });
@@ -136,31 +159,9 @@ export default function TerminalView({ isHalted }) {
     // Start the first loop immediately
     loop();
 
-    // Hourly Cognitive Rollup trigger
-    const rollupInterval = setInterval(async () => {
-      try {
-        console.log('[Browser Pinger] Triggering Hourly Cognitive Rollup...');
-        await fetch('/api/rollup?task=rollup', { method: 'POST' });
-      } catch (e) {
-        console.error('Rollup error:', e);
-      }
-    }, 60 * 60 * 1000); // 1 hour
-
-    // 15-Minute Mission Tracker trigger
-    const missionInterval = setInterval(async () => {
-      try {
-        console.log('[Browser Pinger] Triggering 15-Min Mission Assessment...');
-        await fetch('/api/rollup?task=mission', { method: 'POST' });
-      } catch (e) {
-        console.error('Mission Tracker error:', e);
-      }
-    }, 15 * 60 * 1000); // 15 mins
-
     return () => {
       console.log('[Browser Pinger] Stopped.');
       isRunning = false;
-      clearInterval(rollupInterval);
-      clearInterval(missionInterval);
     };
   }, [autopilotEnabled, isHalted]);
 
