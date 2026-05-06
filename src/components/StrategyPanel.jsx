@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const ASSETS = ['BTC','ETH','SOL','AVAX','LINK','MATIC','DOT','ADA','DOGE','SHIB','LTC','XRP','ATOM','UNI','AAVE','CRV','FTM','NEAR','APT','ARB'];
+const ASSETS = ['BTC','ETH','SOL','AVAX','LINK','MATIC','DOT','ADA','DOGE','SHIB','LTC','XRP','ATOM','UNI','AAVE','CRV','FTM','NEAR','APT','ARB','ZEC'];
 
 const CONDITION_TYPES = [
   { value: 'price_drop_pct',  label: 'Price drops by %',        hasValue: true,  hasWindow: true  },
