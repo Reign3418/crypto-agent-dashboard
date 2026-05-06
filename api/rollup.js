@@ -61,12 +61,41 @@ Speak in the first-person as the AI (e.g. "I am trailing the goal because transa
 
       return res.status(200).json({ success: true, assessment: newAssessment });
     }
+    // ---- MACRO TREND LEDGERS (12H / 24H) ----
+    if (task === '12h' || task === '24h') {
+      const hoursToLookBack = task === '12h' ? 12 : 24;
+      const currentRollups = settings.cognitiveRollups || [];
+      const relevantRollups = currentRollups.slice(0, hoursToLookBack);
+
+      if (relevantRollups.length === 0) return res.status(200).json({ message: 'No hourly rollups to compile into a macro ledger.' });
+
+      const prompt = `You are CIPHER, an elite autonomous fund manager. 
+Below are your hourly cognitive rollups from the last ${hoursToLookBack} hours.
+
+HOURLY ROLLUPS:
+${JSON.stringify(relevantRollups.map(r => r.text), null, 2)}
+
+Synthesize these hourly reports into a single, high-level "Macro Trend Ledger". 
+Identify overarching market shifts over the last ${hoursToLookBack} hours. What overarching algorithmic strategies failed or succeeded? How much did transaction fees impact the overall portfolio over this long period? State clearly how you will permanently adjust your algorithm to learn from yesterday's trends.
+Speak in the first-person as the AI. Do not use markdown fences. Keep it to 1 concise paragraph.`;
+
+      const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+      const ledgerText = aiRes.text.trim();
+
+      const currentLedgers = settings.macroLedgers || [];
+      const newLedger = { timestamp: new Date().toISOString(), type: task.toUpperCase(), text: ledgerText };
+      const updatedLedgers = [newLedger, ...currentLedgers].slice(0, 14); // Keep last 14 ledgers (about a week of 12h/24h)
+      await updateSettings({ macroLedgers: updatedLedgers });
+
+      return res.status(200).json({ success: true, ledger: newLedger });
+    }
 
     // ---- COGNITIVE ROLLUP (60 MINS) ----
-    const lastHourLogs = logs.slice(0, 60);
-    if (lastHourLogs.length === 0) return res.status(200).json({ message: 'No logs to roll up.' });
+    if (task === 'rollup') {
+      const lastHourLogs = logs.slice(0, 60);
+      if (lastHourLogs.length === 0) return res.status(200).json({ message: 'No logs to roll up.' });
 
-    const prompt = `You are CIPHER, an elite autonomous fund manager. 
+      const prompt = `You are CIPHER, an elite autonomous fund manager. 
 Below are your activity logs from the last hour of trading, scanning, and news parsing.
 
 LOGS:
@@ -77,18 +106,22 @@ Explain how the market shifted over the last hour, what you learned from your su
 CRITICAL ALGORITHM UPDATE: You must calculate the total transaction fees paid in the last hour from the logs. If aggressive trades and fees are bleeding the portfolio, strictly advise altering the algorithm to increase order sizes or reduce frequency.
 Speak in the first-person as the AI (e.g. "I noticed BTC struggling..."). Do not use markdown fences.`;
 
-    const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
-    const rollupText = aiRes.text.trim();
+      const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+      const rollupText = aiRes.text.trim();
 
-    const currentRollups = settings.cognitiveRollups || [];
-    const newRollup = { timestamp: new Date().toISOString(), text: rollupText };
-    const updatedRollups = [newRollup, ...currentRollups].slice(0, 24);
-    await updateSettings({ cognitiveRollups: updatedRollups });
+      const currentRollups = settings.cognitiveRollups || [];
+      const newRollup = { timestamp: new Date().toISOString(), text: rollupText };
+      const updatedRollups = [newRollup, ...currentRollups].slice(0, 24);
+      await updateSettings({ cognitiveRollups: updatedRollups });
 
-    return res.status(200).json({ success: true, rollup: newRollup });
+      return res.status(200).json({ success: true, rollup: newRollup });
+    }
+
+    return res.status(400).json({ error: 'Invalid task specified.' });
 
   } catch (error) {
     console.error('AI Tasks Engine Error:', error);
     return res.status(500).json({ error: error.message });
   }
 }
+

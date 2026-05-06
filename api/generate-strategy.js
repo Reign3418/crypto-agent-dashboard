@@ -1,5 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
-import { getLastScoutReport } from '../lib/db.js';
+import { getLastScoutReport, getSettings } from '../lib/db.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -14,6 +14,7 @@ export default async function handler(req, res) {
 
     // Load last Scout report for context (may be empty if Scout hasn't run yet)
     const lastScout = await getLastScoutReport();
+    const settings = await getSettings();
 
     // Fall back to live pricefeed if no Scout report exists
     let marketContext = '';
@@ -38,6 +39,10 @@ export default async function handler(req, res) {
         .map(i => `${i.symbol}: $${i.price}, ${i.change}% 24h`)
         .join('\n');
       marketContext = `Live market snapshot:\n${top5}`;
+    }
+
+    if (settings.macroLedgers && settings.macroLedgers.length > 0) {
+      marketContext += `\n\nCRITICAL HISTORICAL CONTEXT (From Last ${settings.macroLedgers[0].type} Macro Ledger):\n${settings.macroLedgers[0].text}\nEnsure your new strategy respects the lessons learned in this ledger!`;
     }
 
     const prompt = `You are a professional crypto trading strategist. Based on current market data, generate ONE actionable alert strategy for a retail trader.

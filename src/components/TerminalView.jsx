@@ -120,10 +120,12 @@ export default function TerminalView({ isHalted }) {
     const loop = async () => {
       if (!isRunning) return;
 
-      // 1. Check if we need to run background tasks (Mission/Rollup)
+      // 1. Check if we need to run background tasks (Mission/Rollup/Ledgers)
       const now = Date.now();
       const lastRollup = parseInt(localStorage.getItem('lastRollupTime') || '0', 10);
       const lastMission = parseInt(localStorage.getItem('lastMissionTime') || '0', 10);
+      const last12H = parseInt(localStorage.getItem('last12HTime') || '0', 10);
+      const last24H = parseInt(localStorage.getItem('last24HTime') || '0', 10);
 
       if (now - lastMission > 15 * 60 * 1000) {
         try {
@@ -138,6 +140,22 @@ export default function TerminalView({ isHalted }) {
           console.log('[Browser Pinger] Triggering Hourly Cognitive Rollup...');
           await fetch('/api/rollup?task=rollup', { method: 'POST' });
           localStorage.setItem('lastRollupTime', now.toString());
+        } catch (e) { console.error(e); }
+      }
+
+      if (now - last12H > 12 * 60 * 60 * 1000) {
+        try {
+          console.log('[Browser Pinger] Triggering 12H Macro Ledger...');
+          await fetch('/api/rollup?task=12h', { method: 'POST' });
+          localStorage.setItem('last12HTime', now.toString());
+        } catch (e) { console.error(e); }
+      }
+
+      if (now - last24H > 24 * 60 * 60 * 1000) {
+        try {
+          console.log('[Browser Pinger] Triggering 24H Macro Ledger...');
+          await fetch('/api/rollup?task=24h', { method: 'POST' });
+          localStorage.setItem('last24HTime', now.toString());
         } catch (e) { console.error(e); }
       }
 

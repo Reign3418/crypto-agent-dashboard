@@ -68,6 +68,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   const [coachNotes, setCoachNotes] = useState('');
   const [cognitiveRollups, setCognitiveRollups] = useState([]);
   const [missionAssessments, setMissionAssessments] = useState([]);
+  const [macroLedgers, setMacroLedgers] = useState([]);
 
   const fetchStrategies = useCallback(async () => {
     try {
@@ -85,6 +86,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
       setCoachNotes(dataSettings.coachNotes || '');
       setCognitiveRollups(dataSettings.cognitiveRollups || []);
       setMissionAssessments(dataSettings.missionAssessments || []);
+      setMacroLedgers(dataSettings.macroLedgers || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, []);
@@ -437,6 +439,34 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
                 <div key={idx} style={{ padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px', borderLeft: '3px solid var(--accent-purple)' }}>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{new Date(rollup.timestamp).toLocaleString()}</div>
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>{rollup.text}</div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        {/* Macro Trends Ledgers Panel */}
+        <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div>
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              📚 Macro Trend Ledgers (12H & 24H)
+            </h3>
+            <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.8rem' }}>
+              High-level historical analysis compiled by the AI to track long-term trends and fee impact.
+            </p>
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
+            {macroLedgers.length === 0 ? (
+              <div style={{ padding: '10px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>No macro ledgers generated yet. Wait 12 hours.</div>
+            ) : (
+              macroLedgers.map((ledger, idx) => (
+                <div key={idx} style={{ padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px', borderLeft: `3px solid ${ledger.type === '24H' ? 'var(--accent-green)' : 'var(--accent-blue)'}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{new Date(ledger.timestamp).toLocaleString()}</span>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: ledger.type === '24H' ? 'var(--accent-green)' : 'var(--accent-blue)' }}>{ledger.type} LEDGER</span>
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>{ledger.text}</div>
                 </div>
               ))
             )}
