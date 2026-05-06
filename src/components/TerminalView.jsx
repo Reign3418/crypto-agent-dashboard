@@ -140,7 +140,7 @@ export default function TerminalView({ isHalted }) {
     const rollupInterval = setInterval(async () => {
       try {
         console.log('[Browser Pinger] Triggering Hourly Cognitive Rollup...');
-        await fetch('/api/rollup', { method: 'POST' });
+        await fetch('/api/rollup?task=rollup', { method: 'POST' });
       } catch (e) {
         console.error('Rollup error:', e);
       }
@@ -150,7 +150,7 @@ export default function TerminalView({ isHalted }) {
     const missionInterval = setInterval(async () => {
       try {
         console.log('[Browser Pinger] Triggering 15-Min Mission Assessment...');
-        await fetch('/api/mission-tracker', { method: 'POST' });
+        await fetch('/api/rollup?task=mission', { method: 'POST' });
       } catch (e) {
         console.error('Mission Tracker error:', e);
       }
