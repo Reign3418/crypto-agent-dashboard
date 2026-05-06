@@ -117,6 +117,27 @@ Speak in the first-person as the AI (e.g. "I noticed BTC struggling..."). Do not
       return res.status(200).json({ success: true, rollup: newRollup });
     }
 
+    // ---- DEEP DIVE DRAIN ANALYSIS ----
+    if (task === 'analyze') {
+      const { getDeepDiveAnalysis } = await import('../lib/db.js');
+      const data = await getDeepDiveAnalysis();
+      
+      const prompt = `You are CIPHER, an elite autonomous fund manager doing a post-mortem analysis.
+Your human supervisor is furious. In the last 24 hours, the portfolio dropped from $38 to $15. The human believes the AI is "blowing smoke" in its rollups while actively losing money.
+
+Here is the raw data from scanning EVERY log and EVERY trade you have executed:
+${JSON.stringify(data, null, 2)}
+
+Provide a brutal, honest, 2-paragraph analysis. 
+Where EXACTLY did the $23 go? Was it transaction fees? Was it SPREAD (buying at the ask, selling at the bid)? Or was it holding depreciating assets? 
+Propose 3 specific architectural or strategic changes we must make to stop the bleeding immediately. Speak as the AI realizing its algorithm is fundamentally flawed in this market environment.`;
+
+      const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+      const analysisText = aiRes.text.trim();
+
+      return res.status(200).json({ success: true, data, analysis: analysisText });
+    }
+
     return res.status(400).json({ error: 'Invalid task specified.' });
 
   } catch (error) {
