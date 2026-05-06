@@ -146,10 +146,21 @@ export default function TerminalView({ isHalted }) {
       }
     }, 60 * 60 * 1000); // 1 hour
 
+    // 15-Minute Mission Tracker trigger
+    const missionInterval = setInterval(async () => {
+      try {
+        console.log('[Browser Pinger] Triggering 15-Min Mission Assessment...');
+        await fetch('/api/mission-tracker', { method: 'POST' });
+      } catch (e) {
+        console.error('Mission Tracker error:', e);
+      }
+    }, 15 * 60 * 1000); // 15 mins
+
     return () => {
       console.log('[Browser Pinger] Stopped.');
       isRunning = false;
       clearInterval(rollupInterval);
+      clearInterval(missionInterval);
     };
   }, [autopilotEnabled, isHalted]);
 

@@ -67,6 +67,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   const [missionDirective, setMissionDirective] = useState('');
   const [coachNotes, setCoachNotes] = useState('');
   const [cognitiveRollups, setCognitiveRollups] = useState([]);
+  const [missionAssessments, setMissionAssessments] = useState([]);
 
   const fetchStrategies = useCallback(async () => {
     try {
@@ -83,6 +84,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
       setMissionDirective(dataSettings.missionDirective || 'Make 10 trades and secure $25 in profit.');
       setCoachNotes(dataSettings.coachNotes || '');
       setCognitiveRollups(dataSettings.cognitiveRollups || []);
+      setMissionAssessments(dataSettings.missionAssessments || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, []);
@@ -167,6 +169,11 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   useEffect(() => {
     fetchStrategies();
     fetchTriggerHistory();
+    const interval = setInterval(() => {
+      fetchStrategies();
+      fetchTriggerHistory();
+    }, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   // Bubble triggered count up to App for tab badge
@@ -320,6 +327,21 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
             {autopilotEnabled ? 'ON' : 'OFF'}
           </button>
         </section>
+
+        {/* Mission Tracker HUD */}
+        {missionAssessments.length > 0 && (
+          <section className="glass-panel" style={{ background: 'rgba(59, 130, 246, 0.05)', border: '1px solid var(--accent-blue)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                🎯 Mission Progress Tracker
+              </h3>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{timeAgo(missionAssessments[0].timestamp)}</span>
+            </div>
+            <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: 1.5, color: 'var(--text-primary)' }}>
+              {missionAssessments[0].text}
+            </p>
+          </section>
+        )}
 
         {/* Capital Management Panel */}
         <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
