@@ -69,6 +69,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   const [cognitiveRollups, setCognitiveRollups] = useState([]);
   const [missionAssessments, setMissionAssessments] = useState([]);
   const [macroLedgers, setMacroLedgers] = useState([]);
+  const [auditResult, setAuditResult] = useState('');
 
   const fetchStrategies = useCallback(async () => {
     try {
@@ -459,17 +460,17 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
             onClick={async () => {
               if (!window.confirm("This will scan the entire database and run a brutal, honest AI analysis on our failures. Proceed?")) return;
               try {
-                alert("Scanning database... this may take a moment.");
+                setAuditResult('Scanning database... this may take a moment.');
                 const res = await fetch('/api/rollup?task=analyze', { method: 'POST' });
                 const json = await res.json();
                 if (json.analysis) {
-                  alert("Raw DB Results:\\n" + JSON.stringify(json.data, null, 2) + "\\n\\nAI Analysis:\\n" + json.analysis);
-                  console.log("Deep Dive Audit Data:", json);
+                  const text = "Raw DB Results:\n" + JSON.stringify(json.data, null, 2) + "\n\nAI Analysis:\n" + json.analysis;
+                  setAuditResult(text);
                 } else {
-                  alert("Audit failed: " + JSON.stringify(json));
+                  setAuditResult("Audit failed: " + JSON.stringify(json));
                 }
               } catch (e) {
-                alert("Error running audit: " + e.message);
+                setAuditResult("Error running audit: " + e.message);
               }
             }}
             style={{
@@ -484,6 +485,35 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
           >
             Run Deep Dive Audit Now
           </button>
+          
+          {auditResult && (
+            <div style={{ marginTop: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <strong>Audit Results:</strong>
+                <button 
+                  onClick={() => navigator.clipboard.writeText(auditResult)}
+                  style={{
+                    padding: '2px 8px', fontSize: '0.75rem', borderRadius: '4px', background: 'var(--accent-blue)', color: '#fff', border: 'none', cursor: 'pointer'
+                  }}>
+                  Copy Text
+                </button>
+              </div>
+              <textarea 
+                readOnly 
+                value={auditResult} 
+                style={{
+                  width: '100%', height: '300px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '10px', fontSize: '0.8rem', fontFamily: 'monospace'
+                }} 
+              />
+              <button 
+                onClick={() => setAuditResult('')}
+                style={{
+                  marginTop: '8px', padding: '4px 10px', fontSize: '0.8rem', borderRadius: '4px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', cursor: 'pointer'
+                }}>
+                Close Report
+              </button>
+            </div>
+          )}
         </section>
 
         {/* Macro Trends Ledgers Panel */}
