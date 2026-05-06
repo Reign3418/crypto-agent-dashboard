@@ -64,6 +64,7 @@ Available assets: BTC, ETH, SOL
 Rules:
 - EMERGENCY GUARDRAIL 1: You may ONLY generate strategies for highly liquid assets (BTC, ETH, SOL). Do not use any other coin.
 - EMERGENCY GUARDRAIL 2: Every strategy MUST include an aggressive condition to cut losses (e.g., price_drop_pct of 5%).
+- EMERGENCY GUARDRAIL 3: HIBERNATION PROTOCOL. If the macro context shows the market is bleeding, DO NOT attempt to trade through it. Set the cooldownMinutes to the maximum (1440) and set conditions that wait for the market to stabilize.
 - Generate only 1–3 conditions. Keep it focused.
 - cooldownMinutes must be one of: 15, 30, 60, 120, 360, 1440.
 - CRITICAL ALGORITHM UPDATE: High-frequency, low-dollar trading can destroy the portfolio via transaction fees. If the market is choppy or fees are a concern, enforce longer cooldowns (e.g., 60, 120, or 360) to prevent the agent from bleeding capital.
@@ -83,7 +84,7 @@ Return ONLY valid JSON — no markdown, no explanation outside the JSON:
 }`;
 
     const aiResponse = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.5-pro',
       contents: prompt,
     });
 

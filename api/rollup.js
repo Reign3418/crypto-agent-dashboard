@@ -79,7 +79,7 @@ Synthesize these hourly reports into a single, high-level "Macro Trend Ledger".
 Identify overarching market shifts over the last ${hoursToLookBack} hours. What overarching algorithmic strategies failed or succeeded? How much did transaction fees impact the overall portfolio over this long period? State clearly how you will permanently adjust your algorithm to learn from yesterday's trends.
 Speak in the first-person as the AI. Do not use markdown fences. Keep it to 1 concise paragraph.`;
 
-      const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+      const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-pro', contents: prompt });
       const ledgerText = aiRes.text.trim();
 
       const currentLedgers = settings.macroLedgers || [];
