@@ -33,7 +33,7 @@ export default function TerminalView({ isHalted }) {
         const data = await res.json();
         const usdPairs = data
           .filter(t => t.pair.toLowerCase().endsWith('usd'))
-          .sort((a, b) => parseFloat(b.price) * parseFloat(b.percentChange24h) - parseFloat(a.price) * parseFloat(a.percentChange24h));
+          .sort((a, b) => Math.abs(parseFloat(b.percentChange24h)) - Math.abs(parseFloat(a.percentChange24h)));
         
         if (usdPairs.length > 0) {
           const target = usdPairs[0].pair.toLowerCase();
