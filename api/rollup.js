@@ -47,7 +47,9 @@ Your current PORTFOLIO VALUE is: $${totalUsd.toFixed(2)}
 Recent Activity Logs:
 ${JSON.stringify(recentLogs, null, 2)}
 
-Provide a concise 2-sentence tactical progress report on the Mission Directive. Are we on track or falling behind? What specific market actions are keeping us on pace or holding us back? Speak in the first-person as the AI (e.g. "I am trailing the $25 profit goal because SOL volume collapsed..."). Do not use markdown fences.`;
+Provide a concise 2-sentence tactical progress report on the Mission Directive. Are we on track or falling behind? 
+CRITICAL ALGORITHM UPDATE: You must analyze the recent logs for transaction fees ("Fee: X"). Compile a trend of how much aggressive trading is costing us. If transaction fees are eating up our profits, you MUST flag this in your report and advise halting hyper-active, low-dollar trades immediately.
+Speak in the first-person as the AI (e.g. "I am trailing the goal because transaction fees are bleeding the portfolio..."). Do not use markdown fences.`;
 
       const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
       const assessmentText = aiRes.text.trim();
@@ -72,6 +74,7 @@ ${JSON.stringify(lastHourLogs, null, 2)}
 
 Analyze these logs and write a single, concise 1-paragraph "Cognitive Rollup". 
 Explain how the market shifted over the last hour, what you learned from your successes or failures, and how you are adapting your algorithmic strategy right now. 
+CRITICAL ALGORITHM UPDATE: You must calculate the total transaction fees paid in the last hour from the logs. If aggressive trades and fees are bleeding the portfolio, strictly advise altering the algorithm to increase order sizes or reduce frequency.
 Speak in the first-person as the AI (e.g. "I noticed BTC struggling..."). Do not use markdown fences.`;
 
     const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });

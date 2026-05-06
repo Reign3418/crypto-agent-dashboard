@@ -203,7 +203,9 @@ export default async function handler(req, res) {
                       success: true, 
                       executed_amount: tradeData.executed_amount,
                       price: tradeData.price,
-                      order_id: tradeData.order_id
+                      order_id: tradeData.order_id,
+                      fee_amount: tradeData.fee_amount,
+                      fee_currency: tradeData.fee_currency
                     };
                 }
             } catch (apiError) {

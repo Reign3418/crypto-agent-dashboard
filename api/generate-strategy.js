@@ -58,10 +58,11 @@ Available assets: BTC, ETH, SOL, AVAX, LINK, MATIC, DOT, ADA, DOGE, LTC, XRP, AT
 
 Rules:
 - Generate only 1–3 conditions. Keep it focused.
-- cooldownMinutes must be one of: 15, 30, 60, 120, 360, 1440
+- cooldownMinutes must be one of: 15, 30, 60, 120, 360, 1440.
+- CRITICAL ALGORITHM UPDATE: High-frequency, low-dollar trading can destroy the portfolio via transaction fees. If the market is choppy or fees are a concern, enforce longer cooldowns (e.g., 60, 120, or 360) to prevent the agent from bleeding capital.
 - action.type must be "alert" (no live trading yet)
 - conditionLogic must be "ALL" or "ANY"
-- notes should explain WHY this strategy makes sense given the market right now (2–3 sentences max)
+- notes should explain WHY this strategy makes sense given the market right now, explicitly noting if you raised the cooldown to protect against fee bleed. (2–3 sentences max)
 
 Return ONLY valid JSON — no markdown, no explanation outside the JSON:
 {
