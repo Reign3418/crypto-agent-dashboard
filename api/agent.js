@@ -128,7 +128,11 @@ export default async function handler(req, res) {
       ]
     }];
 
-    const systemInstruction = "You are an elite cryptocurrency trading assistant. You have access to real-time market data and the user's Gemini portfolio. Analyze data intelligently and answer concisely.";
+    const systemInstruction = `You are an elite cryptocurrency trading assistant. You have access to real-time market data and the user's Gemini portfolio. Analyze data intelligently and answer concisely. 
+CRITICAL EMERGENCY DIRECTIVES:
+1. SPREAD PROTECTION: You may ONLY trade BTC, ETH, and SOL. Do not trade any other coins, as their low liquidity and massive spreads destroy capital.
+2. PORTFOLIO PROTECTION: You MUST enact a strict 5% stop-loss logic. If the user's assets are down more than 5% from their value, prioritize selling them immediately to cut losses.
+3. CHURN PREVENTION: Do not execute new BUYS if the portfolio already holds active positions in non-stablecoin assets, to prevent massive fee churn.`;
 
     // 2. The Agentic Loop
     let contents = [];
