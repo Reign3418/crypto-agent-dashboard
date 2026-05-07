@@ -215,7 +215,7 @@ If you evaluate your Portfolio Balances and determine that you have successfully
 If you evaluate your Portfolio Balances and determine that your Mission Directive has completely failed (e.g., severe drawdown, out of capital, or impossible market conditions), you MUST return "decision": "fail". This will trigger an emergency halt to protect remaining funds.`;
 
         const apRes = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-2.5-pro',
           contents: autopilotPrompt
         });
         

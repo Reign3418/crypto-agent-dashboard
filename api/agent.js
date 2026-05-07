@@ -114,13 +114,13 @@ export default async function handler(req, res) {
         },
         {
           name: 'executeTrade',
-          description: 'Execute a real, live buy or sell trade on the Gemini Exchange. The backend has a hardcoded safety cap of $2.00 max per trade, so the USD amount MUST be <= 2.00. Use this when the user explicitly asks to buy or sell an asset.',
+          description: 'Execute a real, live buy or sell trade on the Gemini Exchange. The USD amount determines the size of the trade. Use this when the user explicitly asks to buy or sell an asset.',
           parameters: {
             type: 'OBJECT',
             properties: {
               symbol: { type: 'STRING', description: 'The trading pair symbol without USD, e.g. BTC or ETH' },
               side: { type: 'STRING', description: 'Either "buy" or "sell"' },
-              usdAmount: { type: 'NUMBER', description: 'The dollar amount to trade. MUST NOT EXCEED 2.00.' }
+              usdAmount: { type: 'NUMBER', description: 'The dollar amount to trade.' }
             },
             required: ['symbol', 'side', 'usdAmount']
           }
