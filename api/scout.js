@@ -172,6 +172,42 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
         const balances = await getPortfolioBalances().catch(() => ({}));
         const liquidatable = settings.liquidatableAssets || [];
 
+        // ── HARD STOP-LOSS MEMORY CHECK ──
+        let panicSold = false;
+        if (settings.openPositions) {
+          for (const [sym, data] of Object.entries(settings.openPositions)) {
+            const currentData = tickerMap[sym.toUpperCase()];
+            if (currentData) {
+              const buyPrice = parseFloat(data.buyPrice);
+              const currentPrice = parseFloat(currentData.price);
+              const dropPct = ((buyPrice - currentPrice) / buyPrice) * 100;
+              
+              if (dropPct >= 5.0) {
+                await logAction(`🚨 HARD STOP-LOSS TRIGGERED: ${sym} dropped ${dropPct.toFixed(2)}% from buy price $${buyPrice}. Bypassing AI and executing PANIC SELL!`, true);
+                try {
+                  const notionalToSell = parseFloat(data.amount) * currentPrice;
+                  if (notionalToSell > 1.00) {
+                     await executeTrade(sym, 'sell', notionalToSell.toFixed(2));
+                  } else {
+                     await logAction(`⚠️ Notional value of ${sym} too low to sell ($${notionalToSell.toFixed(2)}). Removing from active memory.`);
+                     const { updateSettings } = await import('../lib/db.js');
+                     let openPos = settings.openPositions;
+                     delete openPos[sym];
+                     await updateSettings({ openPositions: openPos });
+                  }
+                  panicSold = true;
+                } catch(e) {
+                  await logAction(`❌ Failed to execute panic sell for ${sym}: ${e.message}`);
+                }
+              }
+            }
+          }
+        }
+
+        if (panicSold) {
+           return res.status(200).json({ success: true, message: 'Hard Stop-Loss triggered. AI Autopilot bypassed for this cycle.' });
+        }
+
         const missionDirective = settings.missionDirective || 'Make 10 trades and secure $25 in profit.';
 
         const autopilotPrompt = `You are CIPHER (Crypto Intelligence & Portfolio Heuristics Engine/Router), an elite autonomous fund manager.
@@ -185,6 +221,10 @@ ${JSON.stringify(reportForStorage, null, 2)}
 
 Your current Portfolio Balances (Available Capital):
 ${JSON.stringify(balances, null, 2)}
+
+ACTIVE COST-BASIS MEMORY (What you paid for your current holdings):
+${JSON.stringify(settings.openPositions || {}, null, 2)}
+Use this memory to calculate your exact Unrealized Profit/Loss. Do not sell an asset if it is down unless it is a tactical necessity to free up capital. Try to sell assets that are UP from your buyPrice!
 
 You are authorized to sell any of the following assets to free up USD capital if needed: ${liquidatable.length > 0 ? liquidatable.join(', ') : 'NONE'}
 
