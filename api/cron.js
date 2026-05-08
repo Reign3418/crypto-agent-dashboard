@@ -26,25 +26,10 @@ export default async function handler(req, res) {
     await logAction(`⏰ Cron job started at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, true);
 
     // ── Step 1: Run Scout ──────────────────────────────────────────────────
-    // Calls Scout directly via internal fetch — Scout already handles:
-    //   • Fetching live prices + candles
-    //   • AI analysis with Google Search Grounding
-    //   • Saving report to DynamoDB
-    //   • Auto-evaluating all active strategies
-    //   • Logging triggered strategies to Activity Feed
-    const scoutRes = await fetch(`https://${req.headers.host}/api/scout`, {
-      headers: {
-        // Pass the cron secret so middleware lets it through
-        'Authorization': `Bearer ${cronSecret}`,
-      },
-    });
-
-    if (!scoutRes.ok) {
-      const errText = await scoutRes.text();
-      throw new Error(`Scout failed: ${scoutRes.status} — ${errText.slice(0, 200)}`);
-    }
-
-    const scoutData = await scoutRes.json();
+    // Calls Scout natively instead of an HTTP loopback, bypassing Vercel Edge protection blocks.
+    const { runScoutMission } = await import('./scout.js');
+    const scoutData = await runScoutMission();
+    
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
     await logAction(

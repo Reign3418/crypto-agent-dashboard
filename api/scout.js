@@ -37,14 +37,7 @@ async function getCandles(symbol) {
   })).reverse();
 }
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
-
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-
+export async function runScoutMission() {
   try {
     await logAction('🔭 Scout mission started. Scanning 9 core assets...');
 
@@ -364,14 +357,30 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
       await logAction(`❌ Autopilot error: ${apErr.message}`);
     }
 
-    return res.status(200).json({
+    return {
       generatedAt,
       report: finalReport // Return full report with candles to the frontend
-    });
+    };
 
   } catch (error) {
     console.error('[Scout Error]:', error);
     await logAction(`❌ Scout error: ${error.message}`);
-    return res.status(500).json({ error: 'Scout mission failed', details: error.message });
+    throw error;
+  }
+}
+
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  try {
+    const data = await runScoutMission();
+    return res.status(200).json(data);
+  } catch (err) {
+    return res.status(500).json({ error: 'Scout mission failed', details: err.message });
   }
 }
