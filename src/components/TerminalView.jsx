@@ -27,18 +27,20 @@ export default function TerminalView({ isHalted }) {
     await new Promise(r => setTimeout(r, 600));
     
     addNeuralLog('[API] Performing Pre-Scout Market Sweep...', 'var(--accent-blue)');
+    // Hard-locked to core assets only — no altcoin noise in the terminal
+    const CORE_PAIRS = ['btcusd', 'ethusd', 'solusd', 'xrpusd'];
     try {
       const res = await fetch('/api/proxy?route=pricefeed');
       if (res.ok) {
         const data = await res.json();
-        const usdPairs = data
-          .filter(t => t.pair.toLowerCase().endsWith('usd'))
+        const corePairs = data
+          .filter(t => CORE_PAIRS.includes(t.pair.toLowerCase()))
           .sort((a, b) => Math.abs(parseFloat(b.percentChange24h)) - Math.abs(parseFloat(a.percentChange24h)));
         
-        if (usdPairs.length > 0) {
-          const target = usdPairs[0].pair.toLowerCase();
+        if (corePairs.length > 0) {
+          const target = corePairs[0].pair.toLowerCase();
           setSymbol(target);
-          addNeuralLog(`[SCOUT] Target acquired: ${target.toUpperCase()}. Feeding to CIPHER Core...`, 'var(--accent-green)');
+          addNeuralLog(`[SCOUT] Scanning core assets. Biggest mover: ${target.replace('usd','').toUpperCase()}`, 'var(--accent-green)');
         }
       }
     } catch (e) {
@@ -199,14 +201,10 @@ export default function TerminalView({ isHalted }) {
               border: 'none', fontWeight: 'bold', outline: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)' 
             }}
           >
-            {!['btcusd', 'ethusd', 'solusd', 'pepeusd', 'dogeusd'].includes(symbol) && (
-              <option value={symbol}>{symbol.replace(/usd$/i, '').toUpperCase()}/USD</option>
-            )}
             <option value="btcusd">BTC/USD</option>
             <option value="ethusd">ETH/USD</option>
             <option value="solusd">SOL/USD</option>
-            <option value="pepeusd">PEPE/USD</option>
-            <option value="dogeusd">DOGE/USD</option>
+            <option value="xrpusd">XRP/USD</option>
           </select>
         </div>
         <div style={{ flex: 1, padding: '2px', position: 'relative' }}>
