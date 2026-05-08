@@ -46,16 +46,21 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    await logAction('🔭 Scout mission started. Scanning BTC, ETH, SOL, XRP only...');
+    await logAction('🔭 Scout mission started. Scanning 9 core assets...');
 
-    // Step 1: HARD-LOCKED to liquid assets only — BTC, ETH, SOL, XRP.
+    // Step 1: HARD-LOCKED to liquid assets only.
     // The backend trade guardrail already blocks other coins, so scanning altcoins
-    // is pure noise that confuses the AI. We fetch exactly the four we care about.
+    // is pure noise that confuses the AI. We fetch exactly the nine we care about.
     const CORE_ASSETS = [
       { symbol: 'btcusd', displaySymbol: 'BTC' },
       { symbol: 'ethusd', displaySymbol: 'ETH' },
       { symbol: 'solusd', displaySymbol: 'SOL' },
       { symbol: 'xrpusd', displaySymbol: 'XRP' },
+      { symbol: 'linkusd', displaySymbol: 'LINK' },
+      { symbol: 'dogeusd', displaySymbol: 'DOGE' },
+      { symbol: 'ltcusd', displaySymbol: 'LTC' },
+      { symbol: 'avaxusd', displaySymbol: 'AVAX' },
+      { symbol: 'bchusd', displaySymbol: 'BCH' },
     ];
 
     const priceFeedRes = await fetch('https://api.gemini.com/v1/pricefeed');
@@ -77,7 +82,7 @@ export default async function handler(req, res) {
 
     // Find biggest mover among the three for the log
     const biggestMover = [...topMovers].sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h))[0];
-    await logAction(`📊 Core asset scan: BTC/ETH/SOL/XRP. Biggest mover: ${biggestMover?.displaySymbol} (${biggestMover?.change24h?.toFixed(2)}% 24h)`, true);
+    await logAction(`📊 Core asset scan complete. Biggest mover: ${biggestMover?.displaySymbol} (${biggestMover?.change24h?.toFixed(2)}% 24h)`, true);
 
     // Step 2: Fetch OHLCV for each core asset (in parallel)
     const moversWithCandles = await Promise.all(
@@ -96,14 +101,14 @@ export default async function handler(req, res) {
       recentCandles: m.candles.slice(0, 6).map(c => ({ close: c.close, volume: c.volume }))
     }));
 
-    await logAction('🤖 Handing BTC/ETH/SOL/XRP data to AI Scout for analysis...');
+    await logAction('🤖 Handing market data to AI Scout for analysis...');
 
     // Step 4: Call Gemini AI with Google Search Grounding
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_AI_API_KEY });
 
-    const scoutPrompt = `You are a crypto market scout with live internet access. You are the intelligence arm of an autonomous fund that ONLY trades BTC, ETH, SOL, and XRP.
+    const scoutPrompt = `You are a crypto market scout with live internet access. You are the intelligence arm of an autonomous fund that ONLY trades 9 core assets (BTC, ETH, SOL, XRP, LINK, DOGE, LTC, AVAX, BCH).
 
-Analyze this real-time market data from the Gemini Exchange and use Google Search to find breaking news, regulatory updates, macro events, or major social sentiment specifically for BTC, ETH, SOL, and XRP.
+Analyze this real-time market data from the Gemini Exchange and use Google Search to find breaking news, regulatory updates, macro events, or major social sentiment specifically for these 9 assets.
 
 Market Data (last 24h):
 ${JSON.stringify(marketSummary, null, 2)}
