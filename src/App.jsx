@@ -10,10 +10,7 @@ import TerminalView from './components/TerminalView';
 
 const TABS = [
   { id: 'terminal',  label: '🖥️ Terminal',   hash: '#terminal' },
-  { id: 'portfolio', label: '📊 Portfolio',  hash: '#portfolio' },
-  { id: 'scout',     label: '🔭 Scout',      hash: '#scout' },
   { id: 'strategy',  label: '⚡ Strategy',   hash: '#strategy' },
-  { id: 'agent',     label: '🤖 Agent',      hash: '#agent' },
   { id: 'logs',      label: '📋 Logs',       hash: '#logs' },
 ];
 
@@ -48,20 +45,6 @@ function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: 'User hit the Emergency Stop button. Log that the system was halted. Do not execute any tools.' })
     }).catch(() => {});
-  };
-
-  const launchAllScreens = () => {
-    // Calculate a 2x2 grid using half the screen dimensions
-    const w = Math.floor(screen.width / 2);
-    const h = Math.floor(screen.height / 2);
-    const features = (left, top) =>
-      `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no,scrollbars=no,resizable=yes,status=no`;
-    const base = window.location.origin;
-    // Open all 4 tabs in a 2x2 grid — user drags each to a monitor
-    window.open(`${base}/#portfolio`, 'screen_portfolio', features(0, 0));
-    window.open(`${base}/#scout`,     'screen_scout',     features(w, 0));
-    window.open(`${base}/#agent`,     'screen_agent',     features(0, h));
-    window.open(`${base}/#logs`,      'screen_logs',      features(w, h));
   };
 
   return (
@@ -134,45 +117,13 @@ function App() {
 
         {/* Screen launchers */}
         <div className="desktop-only" style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-          {TABS.map((tab, i) => {
-            const positions = [
-              { left: 0, top: 0 },
-              { left: Math.floor(screen.width / 2), top: 0 },
-              { left: 0, top: Math.floor(screen.height / 2) },
-              { left: Math.floor(screen.width / 2), top: Math.floor(screen.height / 2) },
-            ];
-            const pos = positions[i % positions.length];
-            const w = Math.floor(screen.width / 2);
-            const h = Math.floor(screen.height / 2);
-            return (
-              <button
-                key={tab.id}
-                onClick={() => window.open(
-                  `${window.location.origin}${tab.hash}`,
-                  `screen_${tab.id}`,
-                  `width=${w},height=${h},left=${pos.left},top=${pos.top},toolbar=no,menubar=no,scrollbars=no,resizable=yes`
-                )}
-                title={`Open ${tab.label} in a new window`}
-                style={{
-                  background: 'var(--bg-tertiary)',
-                  border: '1px solid var(--border-subtle)',
-                  color: 'var(--text-muted)',
-                  borderRadius: '6px',
-                  padding: '6px 10px',
-                  cursor: 'pointer',
-                  fontSize: '0.78rem',
-                  transition: 'all 0.15s',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-blue)'; e.currentTarget.style.color = 'var(--text-primary)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-subtle)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
           <button
-            onClick={launchAllScreens}
-            title="Try to open all 4 at once (allow popups if only 1 opens)"
+            onClick={() => window.open(
+              `${window.location.origin}/#terminal`,
+              `screen_terminal`,
+              `width=${Math.floor(screen.width / 2)},height=${Math.floor(screen.height / 2)},left=0,top=0,toolbar=no,menubar=no,scrollbars=no,resizable=yes`
+            )}
+            title="Open Terminal in a new pop-out window"
             style={{
               background: 'rgba(74,158,255,0.15)',
               border: '1px solid var(--accent-blue)',
@@ -185,7 +136,7 @@ function App() {
               whiteSpace: 'nowrap',
             }}
           >
-            ⧉ All
+            ⧉ Pop-out Terminal
           </button>
         </div>
 
@@ -218,54 +169,6 @@ function App() {
           </div>
         )}
 
-        {/* PORTFOLIO TAB */}
-        {activeTab === 'portfolio' && (
-          <div className="grid-stack-mobile" style={{
-            flex: 1, overflow: 'hidden',
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gridTemplateRows: '1fr',
-            gap: '16px',
-            padding: '16px',
-          }}>
-            {/* Left: Market Intelligence */}
-            <div style={{ overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <MarketIntelligence isHalted={isHalted} />
-            </div>
-            {/* Right: Portfolio */}
-            <div style={{ overflow: 'auto' }}>
-              <PortfolioSummary />
-            </div>
-          </div>
-        )}
-
-        {/* SCOUT TAB */}
-        {activeTab === 'scout' && (
-          <div style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
-            <ScoutPanel isHalted={isHalted} />
-          </div>
-        )}
-
-        {/* AGENT TAB */}
-        {activeTab === 'agent' && (
-          <div className="grid-stack-mobile" style={{
-            flex: 1, overflow: 'hidden',
-            display: 'grid',
-            gridTemplateColumns: '1fr 420px',
-            gap: '16px',
-            padding: '16px',
-          }}>
-            {/* Left: market intel context for the agent */}
-            <div style={{ overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <MarketIntelligence isHalted={isHalted} />
-              <PortfolioSummary />
-            </div>
-            {/* Right: Chat — fills full height */}
-            <div style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <AgentChat isHalted={isHalted} />
-            </div>
-          </div>
-        )}
 
         {/* STRATEGY TAB */}
         {activeTab === 'strategy' && (
