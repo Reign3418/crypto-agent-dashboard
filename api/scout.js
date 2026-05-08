@@ -253,6 +253,14 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
 
         const missionDirective = settings.missionDirective || 'Make 10 trades and secure $25 in profit.';
 
+        const latestRollup = (settings.cognitiveRollups && settings.cognitiveRollups.length > 0) 
+            ? settings.cognitiveRollups[0].text 
+            : 'No recent rollups available.';
+            
+        const latestLedger = (settings.macroLedgers && settings.macroLedgers.length > 0)
+            ? settings.macroLedgers[0].text
+            : 'No recent macro ledgers available.';
+
         const autopilotPrompt = `You are CIPHER (Crypto Intelligence & Portfolio Heuristics Engine/Router), an elite autonomous fund manager.
 
 Your MISSION DIRECTIVE is:
@@ -275,7 +283,12 @@ LATEST GLOBAL CRYPTO NEWS HEADLINES:
 ${JSON.stringify(liveNews, null, 2)}
 Cross-reference these global headlines with the price action. Is a drop caused by a panic-inducing headline, or is a surge driven by major partnerships?
 
-NEURAL FEEDBACK LOOP (Your Recent History):
+LONG-TERM AI MEMORY (Your Historical Post-Mortems):
+Hourly Cognitive Rollup: "${latestRollup}"
+Macro Trend Ledger: "${latestLedger}"
+CRITICAL: You MUST incorporate the lessons from your long-term memory above into your current trading decision. If your memory says you are bleeding on fees, you MUST reduce trade frequency. If it says a specific strategy failed, DO NOT repeat it.
+
+NEURAL FEEDBACK LOOP (Your Recent 5-Minute History):
 ${JSON.stringify(recentLogs.slice(0, 5), null, 2)}
 Review your recent Neural Feed logs above. If you see recent trade errors or failures, you MUST learn from them and adapt your strategy. Do not repeat failed actions.
 
