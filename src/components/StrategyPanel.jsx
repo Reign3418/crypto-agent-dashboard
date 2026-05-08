@@ -433,7 +433,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
               value={coachNotes}
               onChange={(e) => setCoachNotes(e.target.value)}
               onBlur={saveCoachNotes}
-              placeholder="e.g. BTC is pumping — go heavier on BTC today."
+              placeholder="e.g. DOGE is pumping — go heavier on DOGE today."
               style={{ width: '100%', background: 'rgba(59,130,246,0.05)', border: '1px solid var(--accent-blue)', color: 'var(--text-primary)', padding: '10px', borderRadius: '8px', fontSize: '0.85rem', resize: 'vertical', minHeight: '55px', boxSizing: 'border-box' }}
             />
           </div>
