@@ -70,6 +70,8 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   const [missionAssessments, setMissionAssessments] = useState([]);
   const [macroLedgers, setMacroLedgers] = useState([]);
   const [auditResult, setAuditResult] = useState('');
+  const [reconciling, setReconciling] = useState(false);
+  const [reconcileResult, setReconcileResult] = useState('');
 
   const fetchStrategies = useCallback(async () => {
     try {
@@ -418,6 +420,61 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
                 {sym}
               </button>
             ))}
+          </div>
+
+          {/* 🔄 Portfolio Reconcile */}
+          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '14px', marginTop: '6px' }}>
+            <p className="text-muted" style={{ margin: '0 0 8px', fontSize: '0.8rem' }}>
+              <strong>🔄 Stop-Loss Memory Sync:</strong> If you suspect the bot is holding positions it doesn&apos;t know about (legacy bags), run a reconcile to register all current Gemini holdings into the stop-loss memory system.
+            </p>
+            <button
+              onClick={async () => {
+                setReconciling(true);
+                setReconcileResult('');
+                try {
+                  const res = await fetch('/api/reconcile', { method: 'POST' });
+                  const data = await res.json();
+                  if (data.success) {
+                    const addedList = data.added.length > 0
+                      ? data.added.map(a => `  • ${a.symbol}: ${a.amount} @ $${a.buyPrice.toFixed(2)} (notional: $${a.notional.toFixed(2)})`).join('\n')
+                      : '  (none — all positions already tracked)';
+                    setReconcileResult(`✅ Reconcile complete!\n\nAdded to stop-loss memory:\n${addedList}\n\nTotal positions now tracked: ${data.totalTrackedNow}`);
+                  } else {
+                    setReconcileResult(`❌ Error: ${data.error}`);
+                  }
+                } catch (e) {
+                  setReconcileResult(`❌ Network error: ${e.message}`);
+                } finally {
+                  setReconciling(false);
+                }
+              }}
+              disabled={reconciling}
+              style={{
+                background: reconciling ? 'var(--bg-tertiary)' : 'rgba(245,158,11,0.15)',
+                border: '1px solid #f59e0b',
+                color: '#f59e0b',
+                borderRadius: '7px', padding: '8px 14px',
+                cursor: reconciling ? 'not-allowed' : 'pointer',
+                fontSize: '0.82rem', fontWeight: 600,
+                opacity: reconciling ? 0.6 : 1,
+                width: '100%',
+              }}
+            >
+              {reconciling ? '⏳ Syncing Gemini Balances...' : '🔄 Sync Stop-Loss Memory Now'}
+            </button>
+            {reconcileResult && (
+              <textarea
+                readOnly
+                value={reconcileResult}
+                rows={6}
+                style={{
+                  marginTop: '10px', width: '100%', resize: 'vertical',
+                  background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-primary)', borderRadius: '8px',
+                  padding: '10px', fontSize: '0.8rem', fontFamily: 'monospace',
+                }}
+              />
+            )}
           </div>
         </section>
 
