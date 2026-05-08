@@ -73,6 +73,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   const [reconciling, setReconciling] = useState(false);
   const [reconcileResult, setReconcileResult] = useState('');
   const [activePersona, setActivePersona] = useState('Bastion');
+  const [activeEraName, setActiveEraName] = useState('Aegis');
 
   const fetchStrategies = useCallback(async () => {
     try {
@@ -92,6 +93,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
       setMissionAssessments(dataSettings.missionAssessments || []);
       setMacroLedgers(dataSettings.macroLedgers || []);
       setActivePersona(dataSettings.activePersona || 'Bastion');
+      setActiveEraName(dataSettings.activeEraName || 'Aegis');
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, []);
@@ -336,6 +338,29 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
     }
   };
 
+  const declareNewEra = async () => {
+    const eraName = window.prompt("Enter a name for the new Era (e.g. Bastion, Hurricane):");
+    if (!eraName || !eraName.trim()) return;
+    
+    if (!window.confirm(`Are you sure you want to declare the "${eraName.trim()}" Era? This will hide all previous logs from the Deep Dive Audit and reset the scorecard to 0.`)) return;
+
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          activeEraName: eraName.trim(), 
+          activeEraEpoch: Date.now() 
+        })
+      });
+      setActiveEraName(eraName.trim());
+      alert(`The "${eraName.trim()}" Era has begun! Old logs are now archived from active analysis.`);
+    } catch (e) {
+      alert("Failed to declare new era.");
+      console.error(e);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflowY: 'auto' }}>
 
@@ -349,10 +374,14 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
         <div style={{ flex: 1, minWidth: '200px' }}>
           <h2 style={{ margin: 0, fontSize: '1.1rem', color: autopilotEnabled ? 'var(--accent-green)' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             {autopilotEnabled ? '🚀' : '✈️'} CIPHER Autopilot — {autopilotEnabled ? 'ACTIVE' : 'INACTIVE'}
-            <span style={{ fontSize: '0.7rem', fontWeight: 400, color: 'var(--text-muted)', marginLeft: '6px', background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>Persona: {activePersona}</span>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <span style={{ fontSize: '0.7rem', fontWeight: 400, color: 'var(--text-muted)', background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>Persona: {activePersona}</span>
+              <span style={{ fontSize: '0.7rem', fontWeight: 400, color: 'var(--text-muted)', background: 'rgba(168,85,247,0.1)', padding: '2px 8px', borderRadius: '10px', border: '1px solid var(--accent-purple)' }}>Era: {activeEraName}</span>
+            </div>
           </h2>
-          <p className="text-muted" style={{ margin: '3px 0 0', fontSize: '0.8rem' }}>
-            {autopilotEnabled ? 'AI is continuously executing the mission directive via 60s hyper-scrubs.' : 'Turn on for fully autonomous trading on BTC · ETH · SOL · XRP.'}
+          <p className="text-muted" style={{ margin: '3px 0 0', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>{autopilotEnabled ? 'AI is continuously executing the mission directive via 60s hyper-scrubs.' : 'Turn on for fully autonomous trading on BTC · ETH · SOL · XRP.'}</span>
+            <button onClick={declareNewEra} style={{ background: 'none', border: 'none', color: 'var(--accent-purple)', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}>Declare New Era</button>
           </p>
         </div>
         <button
