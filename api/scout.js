@@ -172,8 +172,8 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
 
     // BUG 2 FIX: Always ensure BTC, ETH, SOL are in tickerMap for stop-loss coverage.
     // On calm days these may not be in the top 12 movers, which would silently skip stop-loss.
-    const CORE_ASSETS = ['BTC', 'ETH', 'SOL', 'XRP'];
-    for (const asset of CORE_ASSETS) {
+    const CORE_TICKERS = ['BTC', 'ETH', 'SOL', 'XRP'];
+    for (const asset of CORE_TICKERS) {
       if (!tickerMap[asset]) {
         try {
           const pRes = await fetch(`https://api.gemini.com/v1/pubticker/${asset.toLowerCase()}usd`);
