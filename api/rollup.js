@@ -122,15 +122,14 @@ Speak in the first-person as the AI (e.g. "I noticed BTC struggling..."). Do not
       const { getDeepDiveAnalysis } = await import('../lib/db.js');
       const data = await getDeepDiveAnalysis();
       
-      const prompt = `You are CIPHER, an elite autonomous fund manager doing a post-mortem analysis.
-Your human supervisor is furious. In the last 24 hours, the portfolio dropped from $38 to $15. The human believes the AI is "blowing smoke" in its rollups while actively losing money.
+      const prompt = `You are BASTION, the capital-preservation AI for this fund. Your supervisor has requested a Deep Dive Audit of all historical trading data to identify portfolio drain.
 
-Here is the raw data from scanning EVERY log and EVERY trade you have executed:
+Here is the raw data spanning ALL logs and ALL trades executed by the system:
 ${JSON.stringify(data, null, 2)}
 
-Provide a brutal, honest, 2-paragraph analysis. 
-Where EXACTLY did the $23 go? Was it transaction fees? Was it SPREAD (buying at the ask, selling at the bid)? Or was it holding depreciating assets? 
-Propose 3 specific architectural or strategic changes we must make to stop the bleeding immediately. Speak as the AI realizing its algorithm is fundamentally flawed in this market environment.`;
+Provide a brutal, honest, 2-paragraph analysis of the data. 
+Where is the capital going? Look at the 'buyVolumeUsd' vs 'sellVolumeUsd'. Are we bleeding on the spread (buying at the ask, selling at the bid)? Are we holding depreciating assets that haven't been sold? Or are we accumulating small, consistent gains?
+Propose specific strategic changes based ONLY on the data above. Speak as the AI system analyzing its own performance.`;
 
       const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
       const analysisText = aiRes.text.trim();
