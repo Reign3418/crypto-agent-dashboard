@@ -158,6 +158,9 @@ ${JSON.stringify(data, null, 2)}
 
 Provide a brutal, honest, 2-paragraph analysis of the data. 
 Where is the capital going? Look at the 'buyVolumeUsd' vs 'sellVolumeUsd'. Are we bleeding on the spread (buying at the ask, selling at the bid)? Are we holding depreciating assets that haven't been sold? Or are we accumulating small, consistent gains?
+
+CRITICAL CONTEXT: If \`totalTrades\` is 0, DO NOT PANIC. This means the system is successfully executing its "Capital Preservation" mandate by patiently holding USD and refusing to trade during sideways/chop markets. Praise this discipline. Do not recommend "activating modules" or "diagnosing failures."
+
 Propose specific strategic changes based ONLY on the data above. Speak as the AI system analyzing its own performance.`;
 
       const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
