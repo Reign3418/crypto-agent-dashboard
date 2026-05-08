@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import CandleChart from './CandleChart';
+import PortfolioChart from './PortfolioChart';
 import LiveNewsFeed from './LiveNewsFeed';
 import TickerTape from './TickerTape';
 import AINeuralFeed from './AINeuralFeed';
@@ -205,13 +206,20 @@ export default function TerminalView({ isHalted }) {
             <option value="ethusd">ETH/USD</option>
             <option value="solusd">SOL/USD</option>
             <option value="xrpusd">XRP/USD</option>
+            <option value="portfolio">Portfolio Value</option>
           </select>
         </div>
         <div style={{ flex: 1, padding: '2px', position: 'relative' }}>
-          {loadingCandles && candles.length === 0 && (
-            <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: 'var(--text-muted)' }}>Loading...</div>
+          {symbol === 'portfolio' ? (
+            <PortfolioChart />
+          ) : (
+            <>
+              {loadingCandles && candles.length === 0 && (
+                <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: 'var(--text-muted)' }}>Loading...</div>
+              )}
+              {candles.length > 0 && <CandleChart symbol={symbol.toUpperCase()} candles={candles} />}
+            </>
           )}
-          {candles.length > 0 && <CandleChart symbol={symbol.toUpperCase()} candles={candles} />}
         </div>
       </div>
 

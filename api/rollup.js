@@ -57,7 +57,17 @@ Speak in the first-person as the AI (e.g. "I am trailing the goal because transa
       const currentAssessments = settings.missionAssessments || [];
       const newAssessment = { timestamp: new Date().toISOString(), text: assessmentText };
       const updatedAssessments = [newAssessment, ...currentAssessments].slice(0, 10);
-      await updateSettings({ missionAssessments: updatedAssessments });
+      
+      const currentHistory = settings.portfolioHistory || [];
+      // Use Math.floor(Date.now() / 1000) for unix timestamp required by lightweight-charts
+      const newPoint = { time: Math.floor(Date.now() / 1000), value: parseFloat(totalUsd.toFixed(2)) };
+      // Keep last 672 points (1 week of 15-min intervals)
+      const updatedHistory = [...currentHistory, newPoint].slice(-672);
+
+      await updateSettings({ 
+          missionAssessments: updatedAssessments,
+          portfolioHistory: updatedHistory 
+      });
 
       return res.status(200).json({ success: true, assessment: newAssessment });
     }
