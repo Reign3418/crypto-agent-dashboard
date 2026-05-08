@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import CandleChart from './CandleChart';
-import OrderBook from './OrderBook';
+import LiveNewsFeed from './LiveNewsFeed';
 import TickerTape from './TickerTape';
 import AINeuralFeed from './AINeuralFeed';
 import ActivityLog from './ActivityLog';
@@ -300,7 +300,7 @@ export default function TerminalView({ isHalted }) {
         </div>
       </div>
 
-      <OrderBook symbol={symbol} />
+      <LiveNewsFeed />
 
       {/* Logs Area */}
       <div className="terminal-panel" style={{ gridArea: 'logs', borderTop: '1px solid var(--border-subtle)' }}>
