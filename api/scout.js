@@ -144,6 +144,22 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
         change24h: mover.change24h,
       };
     }
+
+    // BUG 2 FIX: Always ensure BTC, ETH, SOL are in tickerMap for stop-loss coverage.
+    // On calm days these may not be in the top 12 movers, which would silently skip stop-loss.
+    const CORE_ASSETS = ['BTC', 'ETH', 'SOL'];
+    for (const asset of CORE_ASSETS) {
+      if (!tickerMap[asset]) {
+        try {
+          const pRes = await fetch(`https://api.gemini.com/v1/pubticker/${asset.toLowerCase()}usd`);
+          if (pRes.ok) {
+            const pData = await pRes.json();
+            tickerMap[asset] = { price: parseFloat(pData.last), change24h: 0 };
+          }
+        } catch(e) { /* non-fatal — skip */ }
+      }
+    }
+
     try {
       const evalResult = await runEvaluation({ tickerMap, scoutReport: finalReport });
       if (evalResult.triggered.length > 0) {
@@ -165,48 +181,50 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
       const settings = await getSettings();
       const recentLogs = await getRecentLogs().catch(() => []);
       const liveNews = await fetchLiveNews();
-      if (settings.autopilotEnabled) {
-        await logAction('🚀 CIPHER Core Autopilot is ON. AI evaluating the market for a trade opportunity...');
-        
-        const { executeTrade, getPortfolioBalances } = await import('../lib/trade.js');
-        const balances = await getPortfolioBalances().catch(() => ({}));
-        const liquidatable = settings.liquidatableAssets || [];
 
-        // ── HARD STOP-LOSS MEMORY CHECK ──
-        let panicSold = false;
-        if (settings.openPositions) {
-          for (const [sym, data] of Object.entries(settings.openPositions)) {
-            const currentData = tickerMap[sym.toUpperCase()];
-            if (currentData) {
-              const buyPrice = parseFloat(data.buyPrice);
-              const currentPrice = parseFloat(currentData.price);
-              const dropPct = ((buyPrice - currentPrice) / buyPrice) * 100;
-              
-              if (dropPct >= 5.0) {
-                await logAction(`🚨 HARD STOP-LOSS TRIGGERED: ${sym} dropped ${dropPct.toFixed(2)}% from buy price $${buyPrice}. Bypassing AI and executing PANIC SELL!`, true);
-                try {
-                  const notionalToSell = parseFloat(data.amount) * currentPrice;
-                  if (notionalToSell > 1.00) {
-                     await executeTrade(sym, 'sell', notionalToSell.toFixed(2));
-                  } else {
-                     await logAction(`⚠️ Notional value of ${sym} too low to sell ($${notionalToSell.toFixed(2)}). Removing from active memory.`);
-                     const { updateSettings } = await import('../lib/db.js');
-                     let openPos = settings.openPositions;
-                     delete openPos[sym];
-                     await updateSettings({ openPositions: openPos });
-                  }
-                  panicSold = true;
-                } catch(e) {
-                  await logAction(`❌ Failed to execute panic sell for ${sym}: ${e.message}`);
+      // BUG 3 FIX: Hard stop-loss ALWAYS runs — regardless of autopilot toggle.
+      // If you turn off autopilot, you still need capital protection.
+      const { executeTrade, getPortfolioBalances } = await import('../lib/trade.js');
+      let panicSold = false;
+      if (settings.openPositions && Object.keys(settings.openPositions).length > 0) {
+        for (const [sym, data] of Object.entries(settings.openPositions)) {
+          const currentData = tickerMap[sym.toUpperCase()];
+          if (currentData) {
+            const buyPrice = parseFloat(data.buyPrice);
+            const currentPrice = parseFloat(currentData.price);
+            const dropPct = ((buyPrice - currentPrice) / buyPrice) * 100;
+
+            if (dropPct >= 5.0) {
+              await logAction(`🚨 HARD STOP-LOSS TRIGGERED: ${sym} dropped ${dropPct.toFixed(2)}% from buy price $${buyPrice.toFixed(2)}. Bypassing AI and executing PANIC SELL!`, true);
+              try {
+                const notionalToSell = parseFloat(data.amount) * currentPrice;
+                if (notionalToSell > 1.00) {
+                  await executeTrade(sym, 'sell', notionalToSell.toFixed(2));
+                } else {
+                  await logAction(`⚠️ Notional value of ${sym} too low to sell ($${notionalToSell.toFixed(2)}). Removing from active memory.`);
+                  const { updateSettings } = await import('../lib/db.js');
+                  let openPos = settings.openPositions;
+                  delete openPos[sym];
+                  await updateSettings({ openPositions: openPos });
                 }
+                panicSold = true;
+              } catch(e) {
+                await logAction(`❌ Failed to execute panic sell for ${sym}: ${e.message}`);
               }
             }
           }
         }
+      }
 
-        if (panicSold) {
-           return res.status(200).json({ success: true, message: 'Hard Stop-Loss triggered. AI Autopilot bypassed for this cycle.' });
-        }
+      if (panicSold) {
+        return res.status(200).json({ success: true, message: 'Hard Stop-Loss triggered. AI Autopilot bypassed for this cycle.' });
+      }
+
+      if (settings.autopilotEnabled) {
+        await logAction('🚀 CIPHER Core Autopilot is ON. AI evaluating the market for a trade opportunity...');
+        
+        const balances = await getPortfolioBalances().catch(() => ({}));
+        const liquidatable = settings.liquidatableAssets || [];
 
         const missionDirective = settings.missionDirective || 'Make 10 trades and secure $25 in profit.';
 
