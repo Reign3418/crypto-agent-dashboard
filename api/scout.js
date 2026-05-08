@@ -46,15 +46,39 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    await logAction('🔭 Scout mission started. Scanning all Gemini USD markets...');
+    await logAction('🔭 Scout mission started. Scanning BTC, ETH, SOL only...');
 
-    // Step 1: Get all movers, take top 12
-    const allMovers = await getAllMovers();
-    const topMovers = allMovers.slice(0, 12);
+    // Step 1: HARD-LOCKED to liquid assets only — BTC, ETH, SOL.
+    // The backend trade guardrail already blocks other coins, so scanning altcoins
+    // is pure noise that confuses the AI. We fetch exactly the three we care about.
+    const CORE_ASSETS = [
+      { symbol: 'btcusd', displaySymbol: 'BTC' },
+      { symbol: 'ethusd', displaySymbol: 'ETH' },
+      { symbol: 'solusd', displaySymbol: 'SOL' },
+    ];
 
-    await logAction(`📊 Top mover identified: ${topMovers[0]?.displaySymbol} (${topMovers[0]?.change24h?.toFixed(2)}% 24h)`, true);
+    const priceFeedRes = await fetch('https://api.gemini.com/v1/pricefeed');
+    const priceFeedData = priceFeedRes.ok ? await priceFeedRes.json() : [];
+    const priceMap = {};
+    for (const item of priceFeedData) {
+      priceMap[item.pair.toLowerCase()] = {
+        price: parseFloat(item.price),
+        change24h: parseFloat(item.percentChange24h) * 100,
+      };
+    }
 
-    // Step 2: Fetch OHLCV for each top mover (in parallel)
+    const topMovers = CORE_ASSETS.map(asset => ({
+      symbol: asset.symbol,
+      displaySymbol: asset.displaySymbol,
+      price: priceMap[asset.symbol]?.price || 0,
+      change24h: priceMap[asset.symbol]?.change24h || 0,
+    })).filter(m => m.price > 0);
+
+    // Find biggest mover among the three for the log
+    const biggestMover = [...topMovers].sort((a, b) => Math.abs(b.change24h) - Math.abs(a.change24h))[0];
+    await logAction(`📊 Core asset scan: BTC/ETH/SOL. Biggest mover: ${biggestMover?.displaySymbol} (${biggestMover?.change24h?.toFixed(2)}% 24h)`, true);
+
+    // Step 2: Fetch OHLCV for each core asset (in parallel)
     const moversWithCandles = await Promise.all(
       topMovers.map(async (mover) => {
         const candles = await getCandles(mover.symbol);
@@ -71,14 +95,14 @@ export default async function handler(req, res) {
       recentCandles: m.candles.slice(0, 6).map(c => ({ close: c.close, volume: c.volume }))
     }));
 
-    await logAction('🤖 Handing market data to AI Scout for news analysis...');
+    await logAction('🤖 Handing BTC/ETH/SOL data to AI Scout for analysis...');
 
     // Step 4: Call Gemini AI with Google Search Grounding
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_AI_API_KEY });
 
-    const scoutPrompt = `You are a crypto market scout with live internet access.
-    
-Analyze this real-time market data from the Gemini Exchange and use Google Search to find breaking news, regulatory updates, partnerships, or major social sentiment for EACH asset.
+    const scoutPrompt = `You are a crypto market scout with live internet access. You are the intelligence arm of an autonomous fund that ONLY trades BTC, ETH, and SOL.
+
+Analyze this real-time market data from the Gemini Exchange and use Google Search to find breaking news, regulatory updates, macro events, or major social sentiment specifically for BTC, ETH, and SOL.
 
 Market Data (last 24h):
 ${JSON.stringify(marketSummary, null, 2)}
@@ -89,7 +113,7 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
 - "change24h": number (the percentage)
 - "price": string (formatted price)
 - "newsHeadline": string (one real news headline you found, or "No major news" if none)
-- "analystNote": string (your one-sentence key insight combining price action and news)
+- "analystNote": string (your one-sentence key insight combining price action and news — focus on whether this is a good entry/exit opportunity)
 - "riskLevel": "low" | "medium" | "high"`;
 
     const aiResponse = await ai.models.generateContent({
