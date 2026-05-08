@@ -58,15 +58,8 @@ Speak in the first-person as the AI (e.g. "I am trailing the goal because transa
       const newAssessment = { timestamp: new Date().toISOString(), text: assessmentText };
       const updatedAssessments = [newAssessment, ...currentAssessments].slice(0, 10);
       
-      const currentHistory = settings.portfolioHistory || [];
-      // Use Math.floor(Date.now() / 1000) for unix timestamp required by lightweight-charts
-      const newPoint = { time: Math.floor(Date.now() / 1000), value: parseFloat(totalUsd.toFixed(2)) };
-      // Keep last 672 points (1 week of 15-min intervals)
-      const updatedHistory = [...currentHistory, newPoint].slice(-672);
-
       await updateSettings({ 
-          missionAssessments: updatedAssessments,
-          portfolioHistory: updatedHistory 
+          missionAssessments: updatedAssessments
       });
 
       return res.status(200).json({ success: true, assessment: newAssessment });
@@ -105,7 +98,24 @@ Speak in the first-person as the AI. Do not use markdown fences. Keep it to 1 co
       const lastHourLogs = logs.slice(0, 60);
       if (lastHourLogs.length === 0) return res.status(200).json({ message: 'No logs to roll up.' });
 
+      let totalUsd = 0;
+      try {
+        const host = req.headers.host || 'localhost:3000';
+        const protocol = host.includes('localhost') ? 'http' : 'https';
+        const portRes = await fetch(`${protocol}://${host}/api/portfolio`, { method: 'POST' });
+        if (portRes.ok) {
+          const json = await portRes.json();
+          if (Array.isArray(json)) {
+              totalUsd = json.reduce((sum, item) => sum + parseFloat(item.amountNotional || 0), 0);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to fetch portfolio for 60m rollup:', e.message);
+      }
+
       const prompt = `You are CIPHER, an elite autonomous fund manager. 
+Your current PORTFOLIO VALUE is: $${totalUsd.toFixed(2)}
+
 Below are your activity logs from the last hour of trading, scanning, and news parsing.
 
 LOGS:
@@ -122,7 +132,16 @@ Speak in the first-person as the AI (e.g. "I noticed BTC struggling..."). Do not
       const currentRollups = settings.cognitiveRollups || [];
       const newRollup = { timestamp: new Date().toISOString(), text: rollupText };
       const updatedRollups = [newRollup, ...currentRollups].slice(0, 24);
-      await updateSettings({ cognitiveRollups: updatedRollups });
+      
+      const currentHistory = settings.portfolioHistory || [];
+      const newPoint = { time: Math.floor(Date.now() / 1000), value: parseFloat(totalUsd.toFixed(2)) };
+      // Keep last 672 points (28 days of 60-min intervals)
+      const updatedHistory = [...currentHistory, newPoint].slice(-672);
+
+      await updateSettings({ 
+          cognitiveRollups: updatedRollups,
+          portfolioHistory: updatedHistory
+      });
 
       return res.status(200).json({ success: true, rollup: newRollup });
     }
