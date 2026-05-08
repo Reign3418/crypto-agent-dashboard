@@ -295,637 +295,374 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   };
 
   const enabledCount = strategies.filter(s => s.enabled).length;
+  const [showStrategies, setShowStrategies] = useState(false);
+
+  const runReconcile = async () => {
+    setReconciling(true);
+    setReconcileResult('');
+    try {
+      const res = await fetch('/api/reconcile', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        const addedList = data.added.length > 0
+          ? data.added.map(a => `• ${a.symbol}: ${a.amount} @ $${a.buyPrice.toFixed(2)} ($${a.notional.toFixed(2)})`).join('\n')
+          : '(none — all positions already tracked)';
+        setReconcileResult(`✅ Sync complete!\n\nAdded to stop-loss memory:\n${addedList}\n\nTotal tracked: ${data.totalTrackedNow}`);
+      } else {
+        setReconcileResult(`❌ Error: ${data.error}`);
+      }
+    } catch (e) {
+      setReconcileResult(`❌ Network error: ${e.message}`);
+    } finally {
+      setReconciling(false);
+    }
+  };
+
+  const runAudit = async () => {
+    if (!window.confirm("Scan the entire database and run AI analysis on all trades. Proceed?")) return;
+    setAuditResult('⏳ Scanning database...');
+    try {
+      const res = await fetch('/api/rollup?task=analyze', { method: 'POST' });
+      const json = await res.json();
+      if (json.analysis) {
+        setAuditResult("=== RAW DB RESULTS ===\n" + JSON.stringify(json.data, null, 2) + "\n\n=== AI ANALYSIS ===\n" + json.analysis);
+      } else {
+        setAuditResult("Audit failed: " + JSON.stringify(json));
+      }
+    } catch (e) {
+      setAuditResult("Error: " + e.message);
+    }
+  };
 
   return (
-    <div className="stack-mobile" style={{ display: 'flex', gap: '20px', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', overflowY: 'auto' }}>
 
-      {/* ── Left Column ──────────────────────────────────────────────── */}
-      <div className={showForm ? "desktop-only" : "full-width-mobile"} style={{ flex: '0 0 400px', display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
+      {/* ── Row 1: Status bar ── */}
+      <section className="glass-panel" style={{
+        display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap',
+        border: autopilotEnabled ? '1px solid var(--accent-green)' : '1px solid var(--border-subtle)',
+        background: autopilotEnabled ? 'rgba(34,197,94,0.05)' : 'var(--bg-secondary)',
+        transition: 'all 0.3s ease', padding: '14px 20px'
+      }}>
+        <div style={{ flex: 1, minWidth: '200px' }}>
+          <h2 style={{ margin: 0, fontSize: '1.1rem', color: autopilotEnabled ? 'var(--accent-green)' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {autopilotEnabled ? '🚀' : '✈️'} CIPHER Autopilot — {autopilotEnabled ? 'ACTIVE' : 'INACTIVE'}
+          </h2>
+          <p className="text-muted" style={{ margin: '3px 0 0', fontSize: '0.8rem' }}>
+            {autopilotEnabled ? 'AI is continuously executing the mission directive via 60s hyper-scrubs.' : 'Turn on for fully autonomous trading on BTC · ETH · SOL · XRP.'}
+          </p>
+        </div>
+        <button
+          onClick={toggleAutopilot}
+          disabled={isHalted}
+          style={{
+            padding: '10px 28px', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem',
+            background: autopilotEnabled ? 'var(--accent-green)' : 'var(--bg-tertiary)',
+            color: autopilotEnabled ? '#000' : 'var(--text-muted)',
+            transition: 'all 0.2s', opacity: isHalted ? 0.5 : 1
+          }}
+        >
+          {autopilotEnabled ? 'ON' : 'OFF'}
+        </button>
+      </section>
 
-        {/* Global Autopilot Toggle */}
-        <section className="glass-panel" style={{ 
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
-          border: autopilotEnabled ? '1px solid var(--accent-green)' : '1px solid var(--border-subtle)',
-          background: autopilotEnabled ? 'rgba(34, 197, 94, 0.05)' : 'var(--bg-secondary)',
-          transition: 'all 0.3s ease'
-        }}>
-          <div>
-            <h3 style={{ margin: 0, color: autopilotEnabled ? 'var(--accent-green)' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {autopilotEnabled ? '🚀' : '✈️'} AI Autopilot
-            </h3>
-            <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.8rem', maxWidth: '250px' }}>
-              {autopilotEnabled 
-                ? "Active. AI will continuously execute its Mission Directive via 60s hyper-scrubs." 
-                : "Inactive. Turn on for fully autonomous trading."}
-            </p>
+      {/* ── Mission Progress (only if data exists) ── */}
+      {missionAssessments.length > 0 && (
+        <section className="glass-panel" style={{ background: 'rgba(59,130,246,0.05)', border: '1px solid var(--accent-blue)', padding: '14px 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <h3 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--accent-blue)' }}>🎯 Mission Progress</h3>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{timeAgo(missionAssessments[0].timestamp)}</span>
           </div>
-          <button 
-            onClick={toggleAutopilot}
-            disabled={isHalted}
-            style={{
-              padding: '8px 20px', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer',
-              background: autopilotEnabled ? 'var(--accent-green)' : 'var(--bg-tertiary)',
-              transition: 'all 0.2s',
-              opacity: isHalted ? 0.5 : 1
-            }}
-          >
-            {autopilotEnabled ? 'ON' : 'OFF'}
-          </button>
+          <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: 1.6 }}>{missionAssessments[0].text}</p>
         </section>
+      )}
 
-        {/* Mission Tracker HUD */}
-        {missionAssessments.length > 0 && (
-          <section className="glass-panel" style={{ background: 'rgba(59, 130, 246, 0.05)', border: '1px solid var(--accent-blue)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                🎯 Mission Progress Tracker
-              </h3>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{timeAgo(missionAssessments[0].timestamp)}</span>
-            </div>
-            <p style={{ margin: 0, fontSize: '0.85rem', lineHeight: 1.5, color: 'var(--text-primary)' }}>
-              {missionAssessments[0].text}
-            </p>
-          </section>
-        )}
+      {/* ── Row 2: Three-column grid ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
 
-        {/* Capital Management Panel */}
-        <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {/* Col 1: Mission + Coach */}
+        <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>💼 Mission Control</h3>
+
           <div>
-            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              💼 Capital Management
-            </h3>
-            <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.8rem' }}>
-              Define CIPHER's core objective. The AI will read this directive before every autonomous execution.
-            </p>
+            <label style={labelStyle}>Mission Directive</label>
             <textarea
               value={missionDirective}
               onChange={(e) => setMissionDirective(e.target.value)}
               onBlur={saveMissionDirective}
-              placeholder="e.g. Make 10 trades and secure $25 in profit."
-              style={{
-                width: '100%',
-                background: 'var(--bg-tertiary)',
-                border: '1px solid var(--border-subtle)',
-                color: 'var(--text-primary)',
-                padding: '10px',
-                borderRadius: '8px',
-                fontSize: '0.85rem',
-                marginTop: '10px',
-                resize: 'vertical',
-                minHeight: '60px'
-              }}
+              placeholder="e.g. Scalp BTC/XRP and build a $10 profit cushion."
+              style={{ width: '100%', background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', padding: '10px', borderRadius: '8px', fontSize: '0.85rem', resize: 'vertical', minHeight: '70px', boxSizing: 'border-box' }}
             />
-            <p className="text-muted" style={{ margin: '12px 0 4px', fontSize: '0.8rem' }}>
-              <strong>Coach's Notes / Live Overrides:</strong> Give CIPHER immediate tactical advice.
-            </p>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Coach&apos;s Override Notes</label>
             <textarea
               value={coachNotes}
               onChange={(e) => setCoachNotes(e.target.value)}
               onBlur={saveCoachNotes}
-              placeholder="e.g. Stop trading BTC, the spread is too high. Focus on ETH."
-              style={{
-                width: '100%',
-                background: 'rgba(59, 130, 246, 0.05)',
-                border: '1px solid var(--accent-blue)',
-                color: 'var(--text-primary)',
-                padding: '10px',
-                borderRadius: '8px',
-                fontSize: '0.85rem',
-                resize: 'vertical',
-                minHeight: '50px'
-              }}
+              placeholder="e.g. BTC is pumping — go heavier on BTC today."
+              style={{ width: '100%', background: 'rgba(59,130,246,0.05)', border: '1px solid var(--accent-blue)', color: 'var(--text-primary)', padding: '10px', borderRadius: '8px', fontSize: '0.85rem', resize: 'vertical', minHeight: '55px', boxSizing: 'border-box' }}
             />
-            <p className="text-muted" style={{ margin: '12px 0 4px', fontSize: '0.8rem' }}>
-              <strong>Safe Pool:</strong> Select which assets CIPHER is allowed to autonomously sell to free up capital.
-            </p>
-          </div>
-          
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '4px' }}>
-            {ASSETS.map(sym => (
-              <button
-                key={sym}
-                onClick={() => toggleLiquidatableAsset(sym)}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: '16px',
-                  border: liquidatableAssets.includes(sym) ? '1px solid var(--accent-blue)' : '1px solid var(--border-subtle)',
-                  background: liquidatableAssets.includes(sym) ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-tertiary)',
-                  color: liquidatableAssets.includes(sym) ? 'var(--accent-blue)' : 'var(--text-muted)',
-                  cursor: 'pointer',
-                  fontSize: '0.75rem',
-                  fontWeight: 'bold',
-                  transition: 'all 0.2s'
-                }}
-              >
-                {sym}
-              </button>
-            ))}
           </div>
 
-          {/* 🔄 Portfolio Reconcile */}
-          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '14px', marginTop: '6px' }}>
-            <p className="text-muted" style={{ margin: '0 0 8px', fontSize: '0.8rem' }}>
-              <strong>🔄 Stop-Loss Memory Sync:</strong> If you suspect the bot is holding positions it doesn&apos;t know about (legacy bags), run a reconcile to register all current Gemini holdings into the stop-loss memory system.
+          <div>
+            <label style={labelStyle}>Safe Pool (can sell to free USD)</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {['BTC','ETH','SOL','XRP'].map(sym => (
+                <button
+                  key={sym}
+                  onClick={() => toggleLiquidatableAsset(sym)}
+                  style={{
+                    padding: '5px 12px', borderRadius: '16px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold', transition: 'all 0.2s',
+                    border: liquidatableAssets.includes(sym) ? '1px solid var(--accent-green)' : '1px solid var(--border-subtle)',
+                    background: liquidatableAssets.includes(sym) ? 'rgba(34,197,94,0.12)' : 'var(--bg-tertiary)',
+                    color: liquidatableAssets.includes(sym) ? 'var(--accent-green)' : 'var(--text-muted)',
+                  }}
+                >
+                  {sym}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Col 2: Stop-Loss Sync + Audit */}
+        <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>🛡️ Risk Controls</h3>
+
+          <div>
+            <p className="text-muted" style={{ margin: '0 0 8px', fontSize: '0.8rem', lineHeight: 1.5 }}>
+              <strong>Stop-Loss Memory Sync</strong> — Registers all Gemini holdings into the 5% stop-loss tracker. Run this once if the bot has legacy bags it doesn&apos;t know about.
             </p>
             <button
-              onClick={async () => {
-                setReconciling(true);
-                setReconcileResult('');
-                try {
-                  const res = await fetch('/api/reconcile', { method: 'POST' });
-                  const data = await res.json();
-                  if (data.success) {
-                    const addedList = data.added.length > 0
-                      ? data.added.map(a => `  • ${a.symbol}: ${a.amount} @ $${a.buyPrice.toFixed(2)} (notional: $${a.notional.toFixed(2)})`).join('\n')
-                      : '  (none — all positions already tracked)';
-                    setReconcileResult(`✅ Reconcile complete!\n\nAdded to stop-loss memory:\n${addedList}\n\nTotal positions now tracked: ${data.totalTrackedNow}`);
-                  } else {
-                    setReconcileResult(`❌ Error: ${data.error}`);
-                  }
-                } catch (e) {
-                  setReconcileResult(`❌ Network error: ${e.message}`);
-                } finally {
-                  setReconciling(false);
-                }
-              }}
+              onClick={runReconcile}
               disabled={reconciling}
               style={{
+                width: '100%', padding: '10px', borderRadius: '8px', fontWeight: 600, cursor: reconciling ? 'not-allowed' : 'pointer',
                 background: reconciling ? 'var(--bg-tertiary)' : 'rgba(245,158,11,0.15)',
-                border: '1px solid #f59e0b',
-                color: '#f59e0b',
-                borderRadius: '7px', padding: '8px 14px',
-                cursor: reconciling ? 'not-allowed' : 'pointer',
-                fontSize: '0.82rem', fontWeight: 600,
-                opacity: reconciling ? 0.6 : 1,
-                width: '100%',
+                border: '1px solid #f59e0b', color: '#f59e0b', fontSize: '0.85rem', opacity: reconciling ? 0.6 : 1,
               }}
             >
-              {reconciling ? '⏳ Syncing Gemini Balances...' : '🔄 Sync Stop-Loss Memory Now'}
+              {reconciling ? '⏳ Syncing...' : '🔄 Sync Stop-Loss Memory'}
             </button>
             {reconcileResult && (
-              <textarea
-                readOnly
-                value={reconcileResult}
-                rows={6}
-                style={{
-                  marginTop: '10px', width: '100%', resize: 'vertical',
-                  background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-subtle)',
-                  color: 'var(--text-primary)', borderRadius: '8px',
-                  padding: '10px', fontSize: '0.8rem', fontFamily: 'monospace',
-                }}
+              <textarea readOnly value={reconcileResult} rows={5}
+                style={{ marginTop: '8px', width: '100%', background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', borderRadius: '8px', padding: '10px', fontSize: '0.78rem', fontFamily: 'monospace', boxSizing: 'border-box' }}
               />
             )}
           </div>
-        </section>
 
-        {/* Cognitive Rollups Panel */}
-        <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div>
-            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              🧠 Cognitive Rollups (Learning Diary)
-            </h3>
-            <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.8rem' }}>
-              CIPHER's hourly summary of how it is adapting its algorithm to the market.
+          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '14px' }}>
+            <p className="text-muted" style={{ margin: '0 0 8px', fontSize: '0.8rem', lineHeight: 1.5 }}>
+              <strong style={{ color: 'var(--accent-red)' }}>Portfolio Drain Audit</strong> — Full AI forensic scan of every trade to find where capital is bleeding.
             </p>
-          </div>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
-            {cognitiveRollups.length === 0 ? (
-              <div style={{ padding: '10px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>No rollups generated yet.</div>
-            ) : (
-              cognitiveRollups.map((rollup, idx) => (
-                <div key={idx} style={{ padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px', borderLeft: '3px solid var(--accent-purple)' }}>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{new Date(rollup.timestamp).toLocaleString()}</div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>{rollup.text}</div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
-        {/* Deep Dive Audit Panel */}
-        <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px', borderLeft: '3px solid var(--accent-red)' }}>
-          <div>
-            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--accent-red)' }}>
-              ⚠️ Portfolio Drain Audit
-            </h3>
-            <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.8rem' }}>
-              Run a complete, raw database scan of every trade and fee to determine exactly where capital is bleeding.
-            </p>
-          </div>
-          <button 
-            onClick={async () => {
-              if (!window.confirm("This will scan the entire database and run a brutal, honest AI analysis on our failures. Proceed?")) return;
-              try {
-                setAuditResult('Scanning database... this may take a moment.');
-                const res = await fetch('/api/rollup?task=analyze', { method: 'POST' });
-                const json = await res.json();
-                if (json.analysis) {
-                  const text = "Raw DB Results:\n" + JSON.stringify(json.data, null, 2) + "\n\nAI Analysis:\n" + json.analysis;
-                  setAuditResult(text);
-                } else {
-                  setAuditResult("Audit failed: " + JSON.stringify(json));
-                }
-              } catch (e) {
-                setAuditResult("Error running audit: " + e.message);
-              }
-            }}
-            style={{
-              padding: '10px',
-              borderRadius: '8px',
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid var(--accent-red)',
-              color: 'var(--accent-red)',
-              fontWeight: 'bold',
-              cursor: 'pointer'
-            }}
-          >
-            Run Deep Dive Audit Now
-          </button>
-          
-          {auditResult && (
-            <div style={{ marginTop: '10px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <strong>Audit Results:</strong>
-                <button 
-                  onClick={() => navigator.clipboard.writeText(auditResult)}
-                  style={{
-                    padding: '2px 8px', fontSize: '0.75rem', borderRadius: '4px', background: 'var(--accent-blue)', color: '#fff', border: 'none', cursor: 'pointer'
-                  }}>
-                  Copy Text
-                </button>
-              </div>
-              <textarea 
-                readOnly 
-                value={auditResult} 
-                style={{
-                  width: '100%', height: '300px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '10px', fontSize: '0.8rem', fontFamily: 'monospace'
-                }} 
-              />
-              <button 
-                onClick={() => setAuditResult('')}
-                style={{
-                  marginTop: '8px', padding: '4px 10px', fontSize: '0.8rem', borderRadius: '4px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', cursor: 'pointer'
-                }}>
-                Close Report
-              </button>
-            </div>
-          )}
-        </section>
-
-        {/* Macro Trends Ledgers Panel */}
-        <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div>
-            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-              📚 Macro Trend Ledgers (12H & 24H)
-            </h3>
-            <p className="text-muted" style={{ margin: '4px 0 0', fontSize: '0.8rem' }}>
-              High-level historical analysis compiled by the AI to track long-term trends and fee impact.
-            </p>
-          </div>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '300px', overflowY: 'auto' }}>
-            {macroLedgers.length === 0 ? (
-              <div style={{ padding: '10px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>No macro ledgers generated yet. Wait 12 hours.</div>
-            ) : (
-              macroLedgers.map((ledger, idx) => (
-                <div key={idx} style={{ padding: '12px', background: 'var(--bg-tertiary)', borderRadius: '8px', borderLeft: `3px solid ${ledger.type === '24H' ? 'var(--accent-green)' : 'var(--accent-blue)'}` }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{new Date(ledger.timestamp).toLocaleString()}</span>
-                    <span style={{ fontSize: '0.7rem', fontWeight: 'bold', color: ledger.type === '24H' ? 'var(--accent-green)' : 'var(--accent-blue)' }}>{ledger.type} LEDGER</span>
+            <button
+              onClick={runAudit}
+              style={{
+                width: '100%', padding: '10px', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer',
+                background: 'rgba(239,68,68,0.1)', border: '1px solid var(--accent-red)', color: 'var(--accent-red)', fontSize: '0.85rem',
+              }}
+            >
+              ⚠️ Run Deep Dive Audit
+            </button>
+            {auditResult && (
+              <div style={{ marginTop: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Audit Results</span>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => navigator.clipboard.writeText(auditResult)} style={{ padding: '2px 8px', fontSize: '0.72rem', borderRadius: '4px', background: 'var(--accent-blue)', color: '#fff', border: 'none', cursor: 'pointer' }}>Copy</button>
+                    <button onClick={() => setAuditResult('')} style={{ padding: '2px 8px', fontSize: '0.72rem', borderRadius: '4px', background: 'var(--bg-tertiary)', color: 'var(--text-muted)', border: '1px solid var(--border-subtle)', cursor: 'pointer' }}>✕</button>
                   </div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.4' }}>{ledger.text}</div>
                 </div>
-              ))
+                <textarea readOnly value={auditResult}
+                  style={{ width: '100%', height: '200px', background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '10px', fontSize: '0.78rem', fontFamily: 'monospace', boxSizing: 'border-box' }}
+                />
+              </div>
             )}
           </div>
         </section>
 
-        {/* Strategy List Panel */}
+        {/* Col 3: Cognitive Rollups + Macro Ledgers */}
         <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {/* Header */}
-          <div className="stack-mobile" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-            <div>
-              <h2 style={{ margin: 0 }}>⚡ Strategies</h2>
-              <p className="text-muted" style={{ margin: '2px 0 0', fontSize: '0.8rem' }}>
-                {enabledCount} active · {strategies.length} total
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              <button
-                onClick={generateWithAI}
-                disabled={aiGenerating || isHalted}
-                title="Let AI analyze the market and suggest a strategy"
-                style={{
-                  background: aiGenerating ? 'var(--bg-tertiary)' : 'rgba(74,158,255,0.15)',
-                  border: '1px solid var(--accent-blue)',
-                  color: 'var(--accent-blue)',
-                  borderRadius: '7px', padding: '7px 12px',
-                  cursor: aiGenerating ? 'not-allowed' : 'pointer',
-                  fontSize: '0.82rem', fontWeight: 600,
-                  opacity: aiGenerating ? 0.6 : 1,
-                }}
-              >
-                {aiGenerating ? '🤖 Thinking...' : '🤖 AI Generate'}
-              </button>
-              <button
-                onClick={runEvaluate}
-                disabled={evaluating || isHalted || enabledCount === 0}
-                style={{
-                  background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)',
-                  color: 'var(--text-muted)', borderRadius: '7px', padding: '7px 12px',
-                  cursor: evaluating || enabledCount === 0 ? 'not-allowed' : 'pointer',
-                  fontSize: '0.82rem', opacity: evaluating ? 0.6 : 1,
-                }}
-              >
-                {evaluating ? '⏳ Checking...' : '▶ Evaluate Now'}
-              </button>
-              <button onClick={openNewForm} className="btn-primary" style={{ fontSize: '0.85rem', padding: '7px 14px' }}>
-                + New
-              </button>
+          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>🧠 AI Memory</h3>
+
+          <div>
+            <label style={labelStyle}>Cognitive Rollups (Hourly Learning)</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '220px', overflowY: 'auto' }}>
+              {cognitiveRollups.length === 0 ? (
+                <div style={{ padding: '10px', fontSize: '0.8rem', color: 'var(--text-muted)', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>No rollups yet — generates hourly.</div>
+              ) : cognitiveRollups.map((rollup, idx) => (
+                <div key={idx} style={{ padding: '10px 12px', background: 'var(--bg-tertiary)', borderRadius: '8px', borderLeft: '3px solid var(--accent-purple)' }}>
+                  <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: '3px' }}>{new Date(rollup.timestamp).toLocaleString()}</div>
+                  <div style={{ fontSize: '0.82rem', lineHeight: '1.4' }}>{rollup.text}</div>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Eval results banner */}
-          {evalResults && (
-            <div style={{
-              padding: '10px 14px', borderRadius: '8px',
-              background: evalResults.triggered.length > 0 ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.1)',
-              border: `1px solid ${evalResults.triggered.length > 0 ? 'var(--status-danger)' : 'var(--status-success)'}`,
-              fontSize: '0.85rem', lineHeight: 1.5,
-            }}>
-              {evalResults.triggered.length > 0
-                ? `🚨 Triggered: ${evalResults.triggered.join(', ')}`
-                : `✅ ${evalResults.evaluated} strategies checked — none triggered.`}
-              {evalResults.skipped?.length > 0 && (
-                <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '4px' }}>
-                  ⏱ {evalResults.skipped.length} cooling down
+          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '14px' }}>
+            <label style={labelStyle}>Macro Ledgers (12H & 24H)</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '220px', overflowY: 'auto' }}>
+              {macroLedgers.length === 0 ? (
+                <div style={{ padding: '10px', fontSize: '0.8rem', color: 'var(--text-muted)', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>No ledgers yet — generates every 12 hours.</div>
+              ) : macroLedgers.map((ledger, idx) => (
+                <div key={idx} style={{ padding: '10px 12px', background: 'var(--bg-tertiary)', borderRadius: '8px', borderLeft: `3px solid ${ledger.type === '24H' ? 'var(--accent-green)' : 'var(--accent-blue)'}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>{new Date(ledger.timestamp).toLocaleString()}</span>
+                    <span style={{ fontSize: '0.68rem', fontWeight: 'bold', color: ledger.type === '24H' ? 'var(--accent-green)' : 'var(--accent-blue)' }}>{ledger.type}</span>
+                  </div>
+                  <div style={{ fontSize: '0.82rem', lineHeight: '1.4' }}>{ledger.text}</div>
                 </div>
-              )}
+              ))}
             </div>
-          )}
-
-          {/* Strategy cards */}
-          {loading ? (
-            <p className="text-muted" style={{ margin: 0 }}>Loading strategies...</p>
-          ) : strategies.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '30px', background: 'var(--bg-tertiary)', borderRadius: '10px' }}>
-              <p className="text-muted" style={{ margin: 0, lineHeight: 1.7 }}>
-                No strategies yet.<br />Click <strong>+ New</strong> to create your first rule.
-              </p>
-            </div>
-          ) : (
-            strategies.map(s => {
-              const evalResult = evalResults?.results?.find(r => r.strategy.id === s.id);
-              const isTriggered = evalResult?.isTriggered;
-              const isCooling = evalResult?.coolingDown;
-              return (
-                <div key={s.id} style={{
-                  padding: '14px', borderRadius: '10px',
-                  background: isTriggered ? 'rgba(239,68,68,0.08)' : isCooling ? 'rgba(245,158,11,0.06)' : 'var(--bg-tertiary)',
-                  border: `1px solid ${isTriggered ? 'var(--status-danger)' : isCooling ? '#f59e0b' : 'var(--border-subtle)'}`,
-                  display: 'flex', flexDirection: 'column', gap: '8px',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <div style={{
-                        width: '36px', height: '36px', borderRadius: '50%',
-                        background: 'var(--bg-primary)', display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', fontWeight: 700, fontSize: '0.75rem',
-                        color: s.enabled ? 'var(--accent-blue)' : 'var(--text-muted)',
-                      }}>{s.asset?.slice(0, 3)}</div>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{s.name}</div>
-                        <div className="text-muted" style={{ fontSize: '0.78rem' }}>
-                          {isTriggered ? '🚨 TRIGGERED' : isCooling ? `⏱ Cooldown: ${evalResult.cooldownRemaining}m left` : `Last: ${timeAgo(s.lastTriggered)}`}
-                          {s.triggerCount > 0 && ` · ${s.triggerCount}× total`}
-                        </div>
-                      </div>
-                    </div>
-                    {/* Toggle pill */}
-                    <div
-                      onClick={() => !isHalted && handleToggle(s.id, s.enabled)}
-                      title={s.enabled ? 'Click to disable' : 'Click to enable'}
-                      style={{
-                        width: '42px', height: '22px', borderRadius: '11px',
-                        cursor: isHalted ? 'not-allowed' : 'pointer',
-                        background: s.enabled ? 'var(--accent-blue)' : 'var(--bg-primary)',
-                        border: '1px solid var(--border-subtle)', position: 'relative', transition: 'background 0.2s',
-                      }}
-                    >
-                      <div style={{
-                        position: 'absolute', top: '2px', width: '16px', height: '16px',
-                        borderRadius: '50%', background: 'white', transition: 'left 0.2s',
-                        left: s.enabled ? '22px' : '2px',
-                      }} />
-                    </div>
-                  </div>
-
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-                    {conditionSummary(s.conditions, s.conditionLogic)}
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: '10px', fontSize: '0.78rem' }}>
-                      <span style={{ color: 'var(--accent-blue)' }}>→ {s.action?.type || 'alert'}</span>
-                      <span className="text-muted">⏱ {s.cooldownMinutes || 60}m cooldown</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button onClick={() => openEditForm(s)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.8rem' }}>✏️</button>
-                      <button onClick={() => handleDelete(s.id)} style={{ background: 'none', border: 'none', color: 'var(--status-danger)', cursor: 'pointer', fontSize: '0.8rem' }}>🗑</button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
+          </div>
         </section>
-
-        {/* Trigger History Panel */}
-        {triggerHistory.length > 0 && (
-          <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <h3 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--accent-blue)' }}>🕐 Recent Triggers</h3>
-            {triggerHistory.map((log, i) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                  {log.action?.replace('⚡ Strategy triggered: ', '') || log.action}
-                </span>
-                <span className="text-muted" style={{ fontSize: '0.75rem', flexShrink: 0 }}>{log.time}</span>
-              </div>
-            ))}
-          </section>
-        )}
       </div>
 
-      {/* ── Right Column: Builder ─────────────────────────────────────── */}
-      {showForm ? (
-        <section className="glass-panel full-width-mobile" style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <h2 style={{ margin: 0 }}>{editing ? '✏️ Edit Strategy' : '+ New Strategy'}</h2>
-
-          {/* AI Suggestion Banner */}
-          {aiSuggestionNote && (
-            <div style={{
-              padding: '12px 16px', borderRadius: '10px',
-              background: 'rgba(74,158,255,0.1)', border: '1px solid var(--accent-blue)',
-              display: 'flex', flexDirection: 'column', gap: '6px',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600, fontSize: '0.9rem', color: 'var(--accent-blue)' }}>
-                🤖 AI-Generated Strategy
-              </div>
-              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                {aiSuggestionNote}
-              </p>
-              <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Review all fields below. Edit anything before saving.
-              </p>
-            </div>
-          )}
-
-          {/* Name */}
-          <div>
-            <label style={labelStyle}>Strategy Name</label>
-            <input value={form.name} onChange={e => setField('name', e.target.value)} placeholder="e.g. Buy the BTC Dip" style={inputStyle} />
+      {/* ── Strategies Drawer (collapsed by default) ── */}
+      <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div
+          onClick={() => setShowStrategies(v => !v)}
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h3 style={{ margin: 0 }}>⚡ Strategies</h3>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{enabledCount} active · {strategies.length} total</span>
           </div>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', transition: 'transform 0.2s', transform: showStrategies ? 'rotate(180deg)' : 'none' }}>▼</span>
+        </div>
 
-          {/* Asset */}
-          <div>
-            <label style={labelStyle}>Asset to Watch</label>
-            <select value={form.asset} onChange={e => setField('asset', e.target.value)} style={inputStyle}>
-              {ASSETS.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
-          </div>
-
-          {/* Conditions */}
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <label style={{ ...labelStyle, marginBottom: 0 }}>Conditions</label>
-              <button onClick={addCondition} style={{ background: 'none', border: '1px solid var(--accent-blue)', color: 'var(--accent-blue)', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontSize: '0.8rem' }}>+ Add Condition</button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {form.conditions.map((cond, idx) => {
-                const def = CONDITION_TYPES.find(t => t.value === cond.type);
-                return (
-                  <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'var(--bg-tertiary)', padding: '10px 12px', borderRadius: '8px', flexWrap: 'wrap' }}>
-                    <select value={cond.type} onChange={e => updateCondition(idx, 'type', e.target.value)} style={{ ...inputStyle, flex: '1 1 160px', margin: 0 }}>
-                      {CONDITION_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                    </select>
-                    {def?.hasValue && (
-                      <input type="number" value={cond.value} min="0"
-                        onChange={e => updateCondition(idx, 'value', parseFloat(e.target.value))}
-                        style={{ ...inputStyle, width: '80px', flex: '0 0 80px', margin: 0 }} />
-                    )}
-                    {def?.hasWindow && (
-                      <select value={cond.window || '24h'} onChange={e => updateCondition(idx, 'window', e.target.value)} style={{ ...inputStyle, flex: '0 0 75px', margin: 0 }}>
-                        <option value="1h">1h</option>
-                        <option value="4h">4h</option>
-                        <option value="24h">24h</option>
-                      </select>
-                    )}
-                    {form.conditions.length > 1 && (
-                      <button onClick={() => removeCondition(idx)} style={{ background: 'none', border: 'none', color: 'var(--status-danger)', cursor: 'pointer', fontSize: '1.1rem', padding: '0 4px', flexShrink: 0 }}>✕</button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Condition Logic */}
-          <div>
-            <label style={labelStyle}>Condition Logic</label>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              {['ALL', 'ANY'].map(l => (
-                <button key={l} onClick={() => setField('conditionLogic', l)} style={{
-                  flex: 1, padding: '10px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem',
-                  background: form.conditionLogic === l ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
-                  border: `1px solid ${form.conditionLogic === l ? 'var(--accent-blue)' : 'var(--border-subtle)'}`,
-                  color: form.conditionLogic === l ? 'white' : 'var(--text-muted)',
-                }}>
-                  {l === 'ALL' ? '🔗 ALL must be true (AND)' : '⚡ ANY can be true (OR)'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Cooldown */}
-          <div>
-            <label style={labelStyle}>Cooldown Period</label>
+        {showStrategies && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {[15, 30, 60, 120, 360, 1440].map(m => (
-                <button key={m} onClick={() => setField('cooldownMinutes', m)} style={{
-                  padding: '8px 14px', borderRadius: '7px', cursor: 'pointer', fontSize: '0.85rem',
-                  background: form.cooldownMinutes === m ? 'var(--accent-blue)' : 'var(--bg-tertiary)',
-                  border: `1px solid ${form.cooldownMinutes === m ? 'var(--accent-blue)' : 'var(--border-subtle)'}`,
-                  color: form.cooldownMinutes === m ? 'white' : 'var(--text-muted)',
-                }}>
-                  {m < 60 ? `${m}m` : m === 1440 ? '24h' : `${m / 60}h`}
-                </button>
-              ))}
+              <button onClick={generateWithAI} disabled={aiGenerating || isHalted}
+                style={{ background: aiGenerating ? 'var(--bg-tertiary)' : 'rgba(74,158,255,0.15)', border: '1px solid var(--accent-blue)', color: 'var(--accent-blue)', borderRadius: '7px', padding: '7px 12px', cursor: aiGenerating ? 'not-allowed' : 'pointer', fontSize: '0.82rem', fontWeight: 600, opacity: aiGenerating ? 0.6 : 1 }}>
+                {aiGenerating ? '🤖 Thinking...' : '🤖 AI Generate'}
+              </button>
+              <button onClick={runEvaluate} disabled={evaluating || isHalted || enabledCount === 0}
+                style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)', borderRadius: '7px', padding: '7px 12px', cursor: evaluating || enabledCount === 0 ? 'not-allowed' : 'pointer', fontSize: '0.82rem', opacity: evaluating ? 0.6 : 1 }}>
+                {evaluating ? '⏳ Checking...' : '▶ Evaluate Now'}
+              </button>
+              <button onClick={openNewForm} className="btn-primary" style={{ fontSize: '0.85rem', padding: '7px 14px' }}>+ New</button>
             </div>
-            <p className="text-muted" style={{ margin: '6px 0 0', fontSize: '0.8rem' }}>
-              Strategy won't re-alert until {form.cooldownMinutes < 60 ? `${form.cooldownMinutes} minutes` : `${form.cooldownMinutes / 60} hour${form.cooldownMinutes > 60 ? 's' : ''}`} have passed since the last trigger.
-            </p>
-          </div>
 
-          {/* Action */}
-          <div>
-            <label style={labelStyle}>Action When Triggered</label>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <select 
-                value={form.action.type} 
-                onChange={e => setField('action', { ...form.action, type: e.target.value })} 
-                style={{ ...inputStyle, flex: 2 }}
-              >
-                {ACTION_TYPES.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
-              </select>
-              
-              {form.action.type !== 'alert' && (
-                <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', borderRadius: '8px', padding: '0 12px', flex: 1 }}>
-                  <span style={{ color: 'var(--text-muted)' }}>$</span>
-                  <input 
-                    type="number" 
-                    min="0.10" 
-                    max="2.00" 
-                    step="0.10"
-                    value={form.action.amount || ''} 
-                    onChange={e => setField('action', { ...form.action, amount: parseFloat(e.target.value) })} 
-                    placeholder="2.00"
-                    style={{ ...inputStyle, border: 'none', background: 'transparent', padding: '10px 4px', width: '100%' }} 
-                  />
+            {evalResults && (
+              <div style={{ padding: '10px 14px', borderRadius: '8px', background: evalResults.triggered.length > 0 ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.1)', border: `1px solid ${evalResults.triggered.length > 0 ? 'var(--status-danger)' : 'var(--status-success)'}`, fontSize: '0.85rem' }}>
+                {evalResults.triggered.length > 0 ? `🚨 Triggered: ${evalResults.triggered.join(', ')}` : `✅ ${evalResults.evaluated} strategies checked — none triggered.`}
+              </div>
+            )}
+
+            {loading ? (
+              <p className="text-muted" style={{ margin: 0 }}>Loading...</p>
+            ) : strategies.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px', background: 'var(--bg-tertiary)', borderRadius: '10px' }}>
+                <p className="text-muted" style={{ margin: 0 }}>No strategies yet. Click <strong>+ New</strong> to create one, or use <strong>🤖 AI Generate</strong>.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '10px' }}>
+                {strategies.map(s => {
+                  const evalResult = evalResults?.results?.find(r => r.strategy.id === s.id);
+                  const isTriggered = evalResult?.isTriggered;
+                  const isCooling = evalResult?.coolingDown;
+                  return (
+                    <div key={s.id} style={{ padding: '12px 14px', borderRadius: '10px', background: isTriggered ? 'rgba(239,68,68,0.08)' : isCooling ? 'rgba(245,158,11,0.06)' : 'var(--bg-tertiary)', border: `1px solid ${isTriggered ? 'var(--status-danger)' : isCooling ? '#f59e0b' : 'var(--border-subtle)'}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{s.asset} · {s.name}</div>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button onClick={() => openEditForm(s)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>✏️</button>
+                          <button onClick={() => handleDelete(s.id)} style={{ background: 'none', border: 'none', color: 'var(--status-danger)', cursor: 'pointer' }}>🗑</button>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>{conditionSummary(s.conditions, s.conditionLogic)}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        {isTriggered ? '🚨 TRIGGERED' : isCooling ? `⏱ ${evalResult.cooldownRemaining}m left` : `Last: ${timeAgo(s.lastTriggered)}`}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Strategy Builder Form */}
+            {showForm && (
+              <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <h3 style={{ margin: 0 }}>{editing ? '✏️ Edit Strategy' : '+ New Strategy'}</h3>
+                {aiSuggestionNote && (
+                  <div style={{ padding: '12px', borderRadius: '10px', background: 'rgba(74,158,255,0.1)', border: '1px solid var(--accent-blue)', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                    🤖 {aiSuggestionNote}
+                  </div>
+                )}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Strategy Name</label>
+                    <input value={form.name} onChange={e => setField('name', e.target.value)} placeholder="e.g. Buy the BTC Dip" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Asset</label>
+                    <select value={form.asset} onChange={e => setField('asset', e.target.value)} style={inputStyle}>
+                      {['BTC','ETH','SOL','XRP'].map(a => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
                 </div>
-              )}
-            </div>
-            {form.action.type !== 'alert' && (
-              <p className="text-muted" style={{ margin: '6px 0 0', fontSize: '0.8rem' }}>
-                Note: Hardcoded safety limit caps trades at $2.00 max.
-              </p>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label style={{ ...labelStyle, marginBottom: 0 }}>Conditions</label>
+                    <button onClick={addCondition} style={{ background: 'none', border: '1px solid var(--accent-blue)', color: 'var(--accent-blue)', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', fontSize: '0.78rem' }}>+ Add</button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {form.conditions.map((cond, idx) => {
+                      const def = CONDITION_TYPES.find(t => t.value === cond.type);
+                      return (
+                        <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center', background: 'var(--bg-tertiary)', padding: '8px 10px', borderRadius: '8px', flexWrap: 'wrap' }}>
+                          <select value={cond.type} onChange={e => updateCondition(idx, 'type', e.target.value)} style={{ ...inputStyle, flex: '1 1 160px', margin: 0 }}>
+                            {CONDITION_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                          </select>
+                          {def?.hasValue && <input type="number" value={cond.value} min="0" onChange={e => updateCondition(idx, 'value', parseFloat(e.target.value))} style={{ ...inputStyle, width: '75px', flex: '0 0 75px', margin: 0 }} />}
+                          {def?.hasWindow && (
+                            <select value={cond.window || '24h'} onChange={e => updateCondition(idx, 'window', e.target.value)} style={{ ...inputStyle, flex: '0 0 70px', margin: 0 }}>
+                              <option value="1h">1h</option><option value="4h">4h</option><option value="24h">24h</option>
+                            </select>
+                          )}
+                          {form.conditions.length > 1 && <button onClick={() => removeCondition(idx)} style={{ background: 'none', border: 'none', color: 'var(--status-danger)', cursor: 'pointer', fontSize: '1rem' }}>✕</button>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={labelStyle}>Logic</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {['ALL','ANY'].map(l => (
+                        <button key={l} onClick={() => setField('conditionLogic', l)} style={{ flex: 1, padding: '8px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem', background: form.conditionLogic === l ? 'var(--accent-blue)' : 'var(--bg-tertiary)', border: `1px solid ${form.conditionLogic === l ? 'var(--accent-blue)' : 'var(--border-subtle)'}`, color: form.conditionLogic === l ? 'white' : 'var(--text-muted)' }}>
+                          {l === 'ALL' ? 'AND' : 'OR'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Action</label>
+                    <select value={form.action.type} onChange={e => setField('action', { ...form.action, type: e.target.value })} style={inputStyle}>
+                      {ACTION_TYPES.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Notes</label>
+                  <textarea value={form.notes} onChange={e => setField('notes', e.target.value)} rows={2} placeholder="Your thesis..." style={{ ...inputStyle, resize: 'vertical' }} />
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={cancelForm} style={{ flex: 1, padding: '10px', borderRadius: '8px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)', cursor: 'pointer' }}>Cancel</button>
+                  <button onClick={saveForm} disabled={saving || !form.name.trim()} className="btn-primary" style={{ flex: 2, opacity: saving || !form.name.trim() ? 0.5 : 1 }}>
+                    {saving ? 'Saving...' : editing ? '✅ Update' : '✅ Save Strategy'}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
-
-          {/* Notes */}
-          <div>
-            <label style={labelStyle}>Notes (optional)</label>
-            <textarea value={form.notes} onChange={e => setField('notes', e.target.value)} rows={3} placeholder="Why are you watching this? What's your thesis?" style={{ ...inputStyle, resize: 'vertical' }} />
-          </div>
-
-          {/* Save/Cancel */}
-          <div style={{ display: 'flex', gap: '10px', paddingTop: '10px', borderTop: '1px solid var(--border-subtle)' }}>
-            <button onClick={cancelForm} style={{ flex: 1, padding: '12px', borderRadius: '8px', background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)', cursor: 'pointer' }}>
-              Cancel
-            </button>
-            <button onClick={saveForm} disabled={saving || !form.name.trim()} className="btn-primary" style={{ flex: 2, opacity: saving || !form.name.trim() ? 0.5 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
-              {saving ? 'Saving...' : editing ? '✅ Update Strategy' : '✅ Save Strategy'}
-            </button>
-          </div>
-        </section>
-      ) : (
-        <section className="glass-panel desktop-only" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', opacity: 0.55 }}>
-          <div style={{ fontSize: '3.5rem' }}>⚡</div>
-          <p className="text-muted" style={{ textAlign: 'center', maxWidth: '300px', lineHeight: 1.7 }}>
-            Select <strong>+ New</strong> to build a strategy rule, or click <strong>✏️</strong> on a strategy card to edit it.
-          </p>
-        </section>
-      )}
+        )}
+      </section>
     </div>
   );
 }
