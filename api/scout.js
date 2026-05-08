@@ -46,7 +46,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    await logAction('🔭 Scout mission started. Scanning BTC, ETH, SOL only...');
+    await logAction('🔭 Scout mission started. Scanning BTC, ETH, SOL, XRP only...');
 
     // Step 1: HARD-LOCKED to liquid assets only — BTC, ETH, SOL.
     // The backend trade guardrail already blocks other coins, so scanning altcoins
@@ -55,6 +55,7 @@ export default async function handler(req, res) {
       { symbol: 'btcusd', displaySymbol: 'BTC' },
       { symbol: 'ethusd', displaySymbol: 'ETH' },
       { symbol: 'solusd', displaySymbol: 'SOL' },
+      { symbol: 'xrpusd', displaySymbol: 'XRP' },
     ];
 
     const priceFeedRes = await fetch('https://api.gemini.com/v1/pricefeed');
@@ -171,7 +172,7 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
 
     // BUG 2 FIX: Always ensure BTC, ETH, SOL are in tickerMap for stop-loss coverage.
     // On calm days these may not be in the top 12 movers, which would silently skip stop-loss.
-    const CORE_ASSETS = ['BTC', 'ETH', 'SOL'];
+    const CORE_ASSETS = ['BTC', 'ETH', 'SOL', 'XRP'];
     for (const asset of CORE_ASSETS) {
       if (!tickerMap[asset]) {
         try {

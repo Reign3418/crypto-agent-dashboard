@@ -59,10 +59,10 @@ Available condition types (use ONLY these exact values):
 - scout_bullish   (no extra fields)
 - scout_risk_high (no extra fields)
 
-Available assets: BTC, ETH, SOL
+Available assets: BTC, ETH, SOL, XRP
 
 Rules:
-- EMERGENCY GUARDRAIL 1: You may ONLY generate strategies for highly liquid assets (BTC, ETH, SOL). Do not use any other coin.
+- EMERGENCY GUARDRAIL 1: You may ONLY generate strategies for highly liquid assets (BTC, ETH, SOL, XRP). Do not use any other coin.
 - EMERGENCY GUARDRAIL 2: Every strategy MUST include an aggressive condition to cut losses (e.g., price_drop_pct of 5%).
 - EMERGENCY GUARDRAIL 3: HIBERNATION PROTOCOL. If the macro context shows the market is bleeding, DO NOT attempt to trade through it. Set the cooldownMinutes to the maximum (1440) and set conditions that wait for the market to stabilize.
 - Generate only 1–3 conditions. Keep it focused.
