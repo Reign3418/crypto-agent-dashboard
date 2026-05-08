@@ -72,6 +72,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   const [auditResult, setAuditResult] = useState('');
   const [reconciling, setReconciling] = useState(false);
   const [reconcileResult, setReconcileResult] = useState('');
+  const [activePersona, setActivePersona] = useState('Bastion');
 
   const fetchStrategies = useCallback(async () => {
     try {
@@ -90,6 +91,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
       setCognitiveRollups(dataSettings.cognitiveRollups || []);
       setMissionAssessments(dataSettings.missionAssessments || []);
       setMacroLedgers(dataSettings.macroLedgers || []);
+      setActivePersona(dataSettings.activePersona || 'Bastion');
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, []);
@@ -347,6 +349,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
         <div style={{ flex: 1, minWidth: '200px' }}>
           <h2 style={{ margin: 0, fontSize: '1.1rem', color: autopilotEnabled ? 'var(--accent-green)' : 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
             {autopilotEnabled ? '🚀' : '✈️'} CIPHER Autopilot — {autopilotEnabled ? 'ACTIVE' : 'INACTIVE'}
+            <span style={{ fontSize: '0.7rem', fontWeight: 400, color: 'var(--text-muted)', marginLeft: '6px', background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>Persona: {activePersona}</span>
           </h2>
           <p className="text-muted" style={{ margin: '3px 0 0', fontSize: '0.8rem' }}>
             {autopilotEnabled ? 'AI is continuously executing the mission directive via 60s hyper-scrubs.' : 'Turn on for fully autonomous trading on BTC · ETH · SOL · XRP.'}
