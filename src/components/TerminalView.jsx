@@ -206,6 +206,11 @@ export default function TerminalView({ isHalted }) {
             <option value="ethusd">ETH/USD</option>
             <option value="solusd">SOL/USD</option>
             <option value="xrpusd">XRP/USD</option>
+            <option value="linkusd">LINK/USD</option>
+            <option value="dogeusd">DOGE/USD</option>
+            <option value="ltcusd">LTC/USD</option>
+            <option value="avaxusd">AVAX/USD</option>
+            <option value="bchusd">BCH/USD</option>
             <option value="portfolio">Portfolio Value</option>
           </select>
         </div>

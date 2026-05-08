@@ -380,7 +380,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
             </div>
           </h2>
           <p className="text-muted" style={{ margin: '3px 0 0', fontSize: '0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>{autopilotEnabled ? 'AI is continuously executing the mission directive via 60s hyper-scrubs.' : 'Turn on for fully autonomous trading on BTC · ETH · SOL · XRP.'}</span>
+            <span>{autopilotEnabled ? 'AI is continuously executing the mission directive via 60s hyper-scrubs.' : 'Turn on for fully autonomous trading on 9 core large-cap assets.'}</span>
             <button onClick={declareNewEra} style={{ background: 'none', border: 'none', color: 'var(--accent-purple)', fontSize: '0.75rem', cursor: 'pointer', textDecoration: 'underline' }}>Declare New Era</button>
           </p>
         </div>
@@ -441,7 +441,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
           <div>
             <label style={labelStyle}>Safe Pool (can sell to free USD)</label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-              {['BTC','ETH','SOL','XRP'].map(sym => (
+              {['BTC','ETH','SOL','XRP','LINK','DOGE','LTC','AVAX','BCH'].map(sym => (
                 <button
                   key={sym}
                   onClick={() => toggleLiquidatableAsset(sym)}
@@ -633,7 +633,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
                   <div>
                     <label style={labelStyle}>Asset</label>
                     <select value={form.asset} onChange={e => setField('asset', e.target.value)} style={inputStyle}>
-                      {['BTC','ETH','SOL','XRP'].map(a => <option key={a} value={a}>{a}</option>)}
+                      {['BTC','ETH','SOL','XRP','LINK','DOGE','LTC','AVAX','BCH'].map(a => <option key={a} value={a}>{a}</option>)}
                     </select>
                   </div>
                 </div>
