@@ -37,6 +37,10 @@ export async function runTank() {
     l.action?.includes('fail')
   );
 
+  // Dozer's clean accounting data — prefer this over raw log arithmetic
+  const dozerReport = settings.dozerReport || null;
+
+
   const numNumBlocks   = parseInt(settings.numNumBlocks || '0');
   const blockedSymbol  = settings.numNumBlockedSymbol || null;
   const missionCompletions = settings.missionCompletions || 0;
@@ -72,7 +76,27 @@ Your mandate:
 
 ---
 
-SYSTEM STATE:
+DOZER ACCOUNTING REPORT (Verified Capital — 15min cadence, no AI, pure math):
+${dozerReport ? `
+  Capital Balance:
+    Liquid USD available: $${dozerReport.capitalBalance?.liquidUSD?.toFixed(2) || '?'}
+    Total deployed in open positions: $${dozerReport.capitalBalance?.totalDeployed?.toFixed(2) || '?'}
+    Net realized P&L (closed trades): $${dozerReport.capitalBalance?.netRealizedPL?.toFixed(2) || '?'}
+    Unrealized P&L (open positions): $${dozerReport.capitalBalance?.unrealizedPL?.toFixed(2) || '?'}
+    NET POSITION (real scorecard): $${dozerReport.capitalBalance?.netPosition?.toFixed(2) || '?'}
+    Liquidity status: ${dozerReport.liquidityStatus}
+    Reconciliation: ${dozerReport.capitalBalance?.reconciliationNote}
+
+  Performance Score (${dozerReport.performance?.totalClosedTrades || 0} closed trade pairs):
+    Win rate: ${dozerReport.performance?.winRate || '0%'} (${dozerReport.performance?.winCount || 0}W / ${dozerReport.performance?.lossCount || 0}L)
+    Avg net per trade: $${dozerReport.performance?.avgNetPerTrade?.toFixed(4) || '0'}
+    Fee drag: ${dozerReport.performance?.feeDrag || '—'}
+    Current streak: ${dozerReport.performance?.currentStreak?.count || 0}-${dozerReport.performance?.currentStreak?.type || 'none'}
+    Best trade: ${dozerReport.performance?.bestTrade ? `${dozerReport.performance.bestTrade.symbol} +$${dozerReport.performance.bestTrade.netPL}` : 'none yet'}
+
+  Capital risk: ${dozerReport.capitalRisk}
+  External anomalies: ${dozerReport.externalAnomalies?.length || 0} (excluded from P&L)
+` : 'Dozer has not run yet — first report generates in the next 15-minute window.'}
 
 Current mission directive: "${settings.missionDirective || 'No active mission.'}"
 Mission set by: ${settings.missionSetBy || 'Human'}

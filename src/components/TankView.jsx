@@ -149,6 +149,7 @@ export default function TankView() {
     return () => clearInterval(interval);
   }, []);
 
+  const dozer      = settings?.dozerReport || null;
   const reports    = settings?.tankReports || [];
   const latest     = reports[0] || null;
   const previous   = reports[1] || null;
@@ -258,6 +259,96 @@ export default function TankView() {
           <ReportCard report={previous} dim={true} />
         </div>
       )}
+
+      {/* ── Dozer Accounting Panel ───────────────────────────────── */}
+      <div style={styles.section}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <div style={styles.label}>📊 DOZER — VERIFIED ACCOUNTING</div>
+          {dozer && (
+            <span style={{ fontSize: '0.65rem', color: '#4b5563' }}>
+              Last run: {new Date(dozer.timestamp).toLocaleString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+              &nbsp;·&nbsp; {dozer.tradesAnalyzed} logs analyzed
+            </span>
+          )}
+        </div>
+
+        {!dozer ? (
+          <div style={{
+            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: '8px', padding: '16px', color: '#6b7280', fontSize: '0.8rem', textAlign: 'center'
+          }}>
+            Dozer's first report generates in the next 15-minute cron window.
+          </div>
+        ) : (
+          <div style={{
+            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '10px', padding: '16px',
+          }}>
+            {/* Capital Balance Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginBottom: '14px' }}>
+              {[
+                { label: 'LIQUID USD',   value: `$${(dozer.capitalBalance?.liquidUSD || 0).toFixed(2)}`,   color: dozer.liquidityStatus === 'ADEQUATE' ? '#22c55e' : dozer.liquidityStatus === 'LOW' ? '#f59e0b' : '#ef4444' },
+                { label: 'DEPLOYED',     value: `$${(dozer.capitalBalance?.totalDeployed || 0).toFixed(2)}`,  color: '#60a5fa' },
+                { label: 'REALIZED P&L', value: `$${(dozer.capitalBalance?.netRealizedPL || 0).toFixed(2)}`,  color: (dozer.capitalBalance?.netRealizedPL || 0) >= 0 ? '#22c55e' : '#ef4444' },
+                { label: 'UNREALIZED',   value: `$${(dozer.capitalBalance?.unrealizedPL || 0).toFixed(2)}`,   color: (dozer.capitalBalance?.unrealizedPL || 0) >= 0 ? '#22c55e' : '#f59e0b' },
+                { label: 'NET POSITION', value: `$${(dozer.capitalBalance?.netPosition || 0).toFixed(2)}`,    color: (dozer.capitalBalance?.netPosition || 0) >= 0 ? '#22c55e' : '#ef4444' },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{
+                  background: 'rgba(255,255,255,0.03)', borderRadius: '6px', padding: '10px',
+                  borderTop: `2px solid ${color}40`,
+                }}>
+                  <div style={{ fontSize: '0.62rem', color: '#6b7280', fontWeight: 700, letterSpacing: '0.06em', marginBottom: '4px' }}>{label}</div>
+                  <div style={{ fontSize: '0.9rem', fontWeight: 700, color }}>{value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Performance Row */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: '14px' }}>
+              {[
+                { label: 'WIN RATE',     value: `${dozer.performance?.winCount || 0}W / ${dozer.performance?.lossCount || 0}L (${dozer.performance?.winRate || '0%'})` },
+                { label: 'AVG NET/TRADE',value: `$${(dozer.performance?.avgNetPerTrade || 0).toFixed(4)}` },
+                { label: 'FEE DRAG',     value: dozer.performance?.feeDrag || '—' },
+                { label: 'STREAK',       value: `${dozer.performance?.currentStreak?.count || 0}-${dozer.performance?.currentStreak?.type || 'none'}`,
+                  color: dozer.performance?.currentStreak?.type === 'win' ? '#22c55e' : dozer.performance?.currentStreak?.type === 'loss' ? '#ef4444' : '#6b7280' },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{
+                  background: 'rgba(255,255,255,0.02)', borderRadius: '6px', padding: '10px',
+                }}>
+                  <div style={{ fontSize: '0.62rem', color: '#6b7280', fontWeight: 700, letterSpacing: '0.06em', marginBottom: '4px' }}>{label}</div>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 600, color: color || '#d1d5db' }}>{value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Concentration Risk */}
+            {dozer.concentrationRisk && Object.keys(dozer.concentrationRisk).length > 0 && (
+              <div>
+                <div style={{ fontSize: '0.62rem', color: '#6b7280', fontWeight: 700, letterSpacing: '0.06em', marginBottom: '6px' }}>CONCENTRATION RISK</div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {Object.entries(dozer.concentrationRisk).map(([sym, r]) => {
+                    const c = r.status === 'HIGH' ? '#ef4444' : r.status === 'ELEVATED' ? '#f59e0b' : '#22c55e';
+                    return (
+                      <div key={sym} style={{
+                        background: `${c}12`, border: `1px solid ${c}40`,
+                        borderRadius: '5px', padding: '4px 10px',
+                        fontSize: '0.75rem', color: c, fontWeight: 700,
+                      }}>
+                        {sym} {r.pct}% <span style={{ fontWeight: 400, color: '#6b7280' }}>{r.status}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Reconciliation note */}
+            <div style={{ fontSize: '0.7rem', color: '#4b5563', marginTop: '10px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '8px' }}>
+              {dozer.capitalBalance?.reconciliationNote}
+            </div>
+          </div>
+        )}
+      </div>
 
     </div>
   );

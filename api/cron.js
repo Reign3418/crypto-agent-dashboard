@@ -7,12 +7,13 @@
  *
  * Schedule:
  *   Every 5 min  → CIPHER Scout Mission (tactical trading)
- *   Every 15 min → Mission Progress Assessment
+ *   Every 15 min → DOZER (Accounting) + Mission Progress Assessment
  *   Every 60 min → Cognitive Rollup + NULL Strategic Command
  *   Every 12 hrs → Macro Trend Ledger + TANK (Chief of Operations)
  *   Every 24 hrs → 24H Macro Ledger
  *
- * Command Chain: TANK (12h) → NULL (1h) → CIPHER (5min) → Big Jon → NumNum
+ * Command Chain (Combat Ring): TANK (12h) → NULL (1h) → CIPHER (5min) → Big Jon → NumNum
+ * Back Office Ring:             DOZER (15min) → feeds data to TANK
  */
 
 import { logAction, getSettings, updateSettings } from '../lib/db.js';
@@ -57,18 +58,28 @@ export default async function handler(req, res) {
     const scoutData = await runScoutMission();
     results.scout = `${scoutData?.report?.length || 0} assets scouted`;
 
-    // ── STEP 2: Mission Progress (every 15 min) ───────────────────────────────
+    // ── STEP 2: DOZER — Accounting (every 15 min) ────────────────────────────
     if (now - timestamps.lastMissionTime >= FIFTEEN_MIN) {
+      try {
+        const { runDozer } = await import('./dozer.js');
+        await runDozer();
+        results.dozer = 'reconciled';
+      } catch (e) {
+        await logAction(`⚠️ Dozer error: ${e.message}`);
+      }
+
+      // ── Mission Progress (same 15-min window) ─────────────────────────────
       try {
         const { default: rollupHandler } = await import('./rollup.js');
         const mockReq = { method: 'POST', query: { task: 'mission' }, headers: { host: req.headers.host } };
         const mockRes = { status: () => ({ json: () => {} }), setHeader: () => {} };
         await rollupHandler(mockReq, mockRes);
-        await updateSettings({ lastMissionTime: now.toString() });
         results.mission = 'assessed';
       } catch (e) {
         await logAction(`⚠️ Mission assessment error: ${e.message}`);
       }
+
+      await updateSettings({ lastMissionTime: now.toString() });
     }
 
     // ── STEP 3: Cognitive Rollup (every 60 min) ───────────────────────────────
