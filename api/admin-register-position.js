@@ -13,13 +13,25 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { symbol, buyPrice, amount, note } = req.body;
-    if (!symbol || !buyPrice || !amount) {
-      return res.status(400).json({ error: 'Missing symbol, buyPrice, or amount' });
-    }
+    const { symbol, buyPrice, amount, note, action } = req.body;
+    if (!symbol) return res.status(400).json({ error: 'Missing symbol' });
 
     const settings = await getSettings();
     const openPositions = settings.openPositions || {};
+
+    // action: 'delete' — clears a phantom position from memory
+    if (action === 'delete') {
+      const had = !!openPositions[symbol.toUpperCase()];
+      delete openPositions[symbol.toUpperCase()];
+      await updateSettings({ openPositions });
+      return res.status(200).json({
+        success: true,
+        message: `✅ ${symbol.toUpperCase()} cleared from system memory. Had position: ${had}.`,
+        remaining: Object.keys(openPositions)
+      });
+    }
+
+    if (!buyPrice || !amount) return res.status(400).json({ error: 'Missing buyPrice or amount' });
 
     openPositions[symbol.toUpperCase()] = {
       buyPrice:  parseFloat(buyPrice),
