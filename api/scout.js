@@ -21,7 +21,7 @@ async function checkNullCipherSync(ai, nullDirective, cipherDecision) {
     return { conflict: false, reason: 'CIPHER is holding. No action to conflict.' };
   }
 
-  const syncPrompt = `You are a conflict-detection arbitrator for a dual-agent trading system.
+  const syncPrompt = `You are Big Jon, the conflict-detection referee for a multi-agent trading system.
 
 NULL (Strategic Commander) issued this directive:
 "${nullDirective}"
@@ -29,10 +29,17 @@ NULL (Strategic Commander) issued this directive:
 CIPHER (Tactical Agent) is about to execute this action:
 ${JSON.stringify(cipherDecision, null, 2)}
 
-Does CIPHER's proposed action DIRECTLY CONTRADICT NULL's directive? 
-A conflict means NULL said to hold/stop/pause/avoid an asset and CIPHER is about to trade it anyway.
-If NULL said to focus on a specific asset and CIPHER is trading a different one, that is also a conflict.
-If NULL said to raise profit thresholds and CIPHER is selling at a loss or tiny margin, that is a conflict.
+Your job: Evaluate whether CIPHER's action FUNDAMENTALLY CONTRADICTS the SPIRIT of NULL's directive.
+
+CRITICAL — Evaluate the INTENT, not just the literal words:
+- NULL issues directives once per hour. Market conditions may have changed significantly since NULL last spoke.
+- If NULL said "focus on LINK momentum" but LINK has since stalled and BTC is now surging, a BUY BTC may still align with NULL's INTENT (chase momentum) even if it is a different asset.
+- Only flag a TRUE conflict if CIPHER is doing something that fundamentally violates NULL's strategic intent:
+  * NULL said HOLD or pause → CIPHER is trading anyway (CONFLICT)
+  * NULL said avoid a specific asset → CIPHER is buying that exact asset with no momentum justification (CONFLICT)
+  * NULL said raise profit thresholds → CIPHER is selling at a clear loss with no tactical justification (CONFLICT)
+- Do NOT flag as conflict: CIPHER trading a different asset than NULL mentioned if that asset now has stronger momentum.
+- Do NOT flag as conflict: CIPHER HOLDing when NULL said to trade — holding is always safe.
 
 Return ONLY valid JSON (no markdown):
 { "conflict": true | false, "reason": "one sentence explanation" }`;
@@ -294,25 +301,67 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
 
       if (settings.autopilotEnabled) {
         await logAction('🚀 CIPHER Core Autopilot is ON. AI evaluating the market for a trade opportunity...');
-        
+
+        // ── NULL REACTIVE TRIGGER ──────────────────────────────────────────────
+        // If any core asset moved >3% in the last hour, NULL's last directive may be stale.
+        // Fire an immediate NULL refresh before the trade check so Big Jon uses fresh guidance.
+        const extremeMover = topMovers.find(m => Math.abs(m.change24h) > 3.0);
+        if (extremeMover) {
+          const lastNullRun = parseInt(settings.lastNullCommandTime || settings.lastNullTime || '0');
+          const minsSinceNull = (Date.now() - lastNullRun) / 60000;
+          if (minsSinceNull > 15) { // at least 15 min between reactive runs — don't spam NULL
+            await logAction(`⚡ Reactive NULL trigger: ${extremeMover.displaySymbol} moved ${extremeMover.change24h.toFixed(1)}% — refreshing strategic directive before trade evaluation.`, true);
+            try {
+              const { runNullCommander } = await import('./null-commander.js');
+              await runNullCommander();
+              // Re-fetch settings so Big Jon and CIPHER use the fresh coachNotes
+              const freshSettings = await getSettings();
+              settings.coachNotes = freshSettings.coachNotes;
+              await updateSettings({ lastNullTime: Date.now().toString() });
+            } catch (nullErr) {
+              await logAction(`⚠️ Reactive NULL trigger failed (non-fatal): ${nullErr.message}`);
+            }
+          }
+        }
+        // ── END NULL REACTIVE TRIGGER ──────────────────────────────────────────
+
         const balances = await getPortfolioBalances().catch(() => ({}));
         const liquidatable = settings.liquidatableAssets || [];
 
-        const missionDirective = settings.missionDirective || 'Make 10 trades and secure $25 in profit.';
+        const missionDirective = settings.missionDirective || 'Protect capital and execute disciplined trades.';
+        const missionSetBy = settings.missionSetBy || 'Human';
+        const missionSetAt = settings.missionSetAt || 'unknown';
+        const missionCompletions = settings.missionCompletions || 0;
 
-        const latestRollup = (settings.cognitiveRollups && settings.cognitiveRollups.length > 0) 
-            ? settings.cognitiveRollups[0].text 
+        // Tank briefing — gives CIPHER the 12h strategic view
+        const latestTankReport = (settings.tankReports && settings.tankReports.length > 0)
+            ? settings.tankReports[0]
+            : null;
+
+        const latestRollup = (settings.cognitiveRollups && settings.cognitiveRollups.length > 0)
+            ? settings.cognitiveRollups[0].text
             : 'No recent rollups available.';
-            
+
         const latestLedger = (settings.macroLedgers && settings.macroLedgers.length > 0)
             ? settings.macroLedgers[0].text
             : 'No recent macro ledgers available.';
 
-        const autopilotPrompt = `You are CIPHER (Crypto Intelligence & Portfolio Heuristics Engine/Router), an elite autonomous fund manager.
+        const autopilotPrompt = `You are CIPHER (Crypto Intelligence & Portfolio Heuristics Engine/Router), an elite autonomous fund manager operating within the BASTION multi-agent system.
 
-Your MISSION DIRECTIVE is:
+COMMAND CHAIN: TANK (12h strategy) → NULL (1h tactics) → YOU (5min execution)
+
+TANK OPERATIONAL BRIEFING (Chief of Operations — 12h assessment):
+"${latestTankReport ? latestTankReport.briefing : 'No Tank report yet — this is an early system cycle.'}"
+Mission set by: ${missionSetBy} | Mission completions to date: ${missionCompletions}
+System health: ${latestTankReport ? latestTankReport.systemHealth : 'UNKNOWN'}
+
+Your MISSION DIRECTIVE (set by ${missionSetBy}):
 "${missionDirective}"
-${settings.coachNotes ? `\nCOACH'S OVERRIDE NOTES:\n"${settings.coachNotes}"\n(You MUST prioritize these tactical notes in your immediate decisions.)\n` : ''}
+${settings.coachNotes ? `
+NULL TACTICAL DIRECTIVE (your immediate orders from the Strategic Commander):
+"${settings.coachNotes}"
+(You MUST align your action with this directive. It reflects the last hour of market intelligence.)
+` : ''}
 
 Here is the latest Scout market report for the top movers:
 ${JSON.stringify(reportForStorage, null, 2)}

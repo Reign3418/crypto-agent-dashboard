@@ -8,9 +8,11 @@ import ScoutPanel from './components/ScoutPanel';
 import StrategyPanel from './components/StrategyPanel';
 import TerminalView from './components/TerminalView';
 import NullCommandCenter from './components/NullCommandCenter';
+import TankView from './components/TankView';
 
 const TABS = [
   { id: 'terminal',  label: '🖥️ Terminal',   hash: '#terminal' },
+  { id: 'tank',      label: '🎯 Tank',        hash: '#tank' },
   { id: 'null',      label: '🧠 NULL',        hash: '#null' },
   { id: 'strategy',  label: '⚡ Strategy',   hash: '#strategy' },
   { id: 'logs',      label: '📋 Logs',       hash: '#logs' },
@@ -171,6 +173,13 @@ function App() {
           </div>
         )}
 
+
+        {/* TANK TAB */}
+        {activeTab === 'tank' && (
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <TankView />
+          </div>
+        )}
 
         {/* NULL COMMAND CENTER TAB */}
         {activeTab === 'null' && (

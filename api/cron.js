@@ -1,6 +1,6 @@
 /**
  * Vercel Cron Job — runs every 5 minutes.
- * This is the MASTER ORCHESTRATOR for the entire CIPHER + NULL dual-agent system.
+ * This is the MASTER ORCHESTRATOR for the entire BASTION multi-agent system.
  *
  * All scheduling is handled server-side using DynamoDB timestamps.
  * The browser is NO LONGER required to be open for any task to run.
@@ -9,8 +9,10 @@
  *   Every 5 min  → CIPHER Scout Mission (tactical trading)
  *   Every 15 min → Mission Progress Assessment
  *   Every 60 min → Cognitive Rollup + NULL Strategic Command
- *   Every 12 hrs → Macro Trend Ledger
+ *   Every 12 hrs → Macro Trend Ledger + TANK (Chief of Operations)
  *   Every 24 hrs → 24H Macro Ledger
+ *
+ * Command Chain: TANK (12h) → NULL (1h) → CIPHER (5min) → Big Jon → NumNum
  */
 
 import { logAction, getSettings, updateSettings } from '../lib/db.js';
@@ -95,18 +97,28 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── STEP 5: 12H Macro Ledger ──────────────────────────────────────────────
+    // ── STEP 5: 12H Macro Ledger + TANK ──────────────────────────────────────
     if (now - timestamps.last12HTime >= TWELVE_HR) {
       try {
         const { default: rollupHandler } = await import('./rollup.js');
         const mockReq = { method: 'POST', query: { task: '12h' }, headers: { host: req.headers.host } };
         const mockRes = { status: () => ({ json: () => {} }), setHeader: () => {} };
         await rollupHandler(mockReq, mockRes);
-        await updateSettings({ last12HTime: now.toString() });
         results.ledger12h = 'complete';
       } catch (e) {
         await logAction(`⚠️ 12H ledger error: ${e.message}`);
       }
+
+      // Tank runs immediately after the macro ledger — he reads it for context
+      try {
+        const { runTank } = await import('./tank.js');
+        const tankReport = await runTank();
+        results.tank = `${tankReport.period} report complete — System: ${tankReport.systemHealth}`;
+      } catch (e) {
+        await logAction(`⚠️ Tank error: ${e.message}`);
+      }
+
+      await updateSettings({ last12HTime: now.toString() });
     }
 
     // ── STEP 6: 24H Macro Ledger ──────────────────────────────────────────────
