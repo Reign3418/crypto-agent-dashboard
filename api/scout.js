@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
 import { logAction, saveScoutReport, updateSettings } from '../lib/db.js';
 import { runEvaluation } from '../lib/evaluator.js';
+import { runNumNum } from '../lib/numnum.js';
 
 /**
  * NULL/CIPHER Sync Validator
@@ -338,11 +339,6 @@ NEURAL FEEDBACK LOOP (Your Recent 5-Minute History):
 ${JSON.stringify(recentLogs.slice(0, 5), null, 2)}
 Review your recent Neural Feed logs above. If you see recent trade errors or failures, you MUST learn from them and adapt your strategy. Do not repeat failed actions.
 
-FEE & PROFITABILITY MANDATE (CRITICAL):
-- Every trade incurs a Gemini exchange fee (approx. 0.4% per side).
-- DO NOT execute a SELL unless the asset has appreciated enough to completely cover the buy fee AND the sell fee (approx. 1.0% to 1.5% total minimum profit from cost basis). Selling for a tiny 0.5% gain results in a net negative loss. BE PATIENT.
-- DO NOT execute tiny trades under $15.00 unless absolutely necessary. Small trades are punished heavily by flat-fee minimums. If you buy, buy with enough volume to be fee-efficient.
-
 Analyze this data and your mission directive. You have full discretion over trade sizing. You may choose to trade any asset or HOLD.
 If you want to BUY an asset but your USD balance is low, you MAY choose to liquidate a permitted asset. 
 To do this, set "fundingSource" to the symbol of the authorized asset you want to sell to fund this buy (e.g., "ETH"). You can ONLY use assets listed in the authorized list above.
@@ -381,6 +377,23 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
            }
            await logAction(`✅ [SYNC] CIPHER & NULL aligned. Proceeding with ${apDecision.decision.toUpperCase()} ${apDecision.symbol}.`);
            // ── END SYNC VALIDATION ─────────────────────────────────────────────
+
+           // ── NUMNUM FEE VIABILITY CHECK ───────────────────────────────────────
+           // NumNum does the math so CIPHER doesn't have to. Pure arithmetic gate.
+           const savedPos = (settings.openPositions || {})[apDecision.symbol?.toUpperCase()];
+           const livePrice = reportForStorage.find(a => a.symbol === apDecision.symbol?.toUpperCase())?.price || 0;
+           const numNumResult = runNumNum({
+             side: apDecision.decision,
+             usdAmount: apDecision.amount,
+             currentPrice: parseFloat(livePrice),
+             buyPrice: savedPos?.buyPrice || null,
+           });
+           await logAction(`🔢 NumNum: ${numNumResult.reason}`);
+           if (!numNumResult.approved) {
+             await logAction(`⛔ NumNum BLOCKED the trade. CIPHER stands down. Waiting for better math.`);
+             return;
+           }
+           // ── END NUMNUM CHECK ────────────────────────────────────────────────
 
            const fundSrc = (apDecision.fundingSource || 'USD').toUpperCase();
            
