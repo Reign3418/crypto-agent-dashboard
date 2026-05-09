@@ -391,8 +391,18 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
              });
              await logAction(`🔢 NumNum: ${numNumResult.reason}`);
              if (!numNumResult.approved) {
-               await logAction(`⛔ NumNum BLOCKED the trade. CIPHER stands down. Waiting for better math.`);
-               // Don't return — let runScoutMission finish normally and return its report
+               // ── NUMNUM FEEDBACK LOOP ────────────────────────────────────────
+               // Increment block counter so NULL can see repeated stalls in its hourly audit.
+               const prevBlocks = parseInt(settings.numNumBlocks || '0');
+               const newBlockCount = prevBlocks + 1;
+               await updateSettings({
+                 numNumBlocks: newBlockCount.toString(),
+                 numNumBlockedSymbol: apDecision.symbol?.toUpperCase(),
+                 numNumBlockedPrice: numNumResult.targetSellPrice?.toString(),
+                 numNumLastBlockTime: Date.now().toString(),
+               });
+               await logAction(`⛔ NumNum BLOCKED the trade. (Block #${newBlockCount} on ${apDecision.symbol?.toUpperCase()}). CIPHER stands down. Waiting for better math.`);
+               // ── END FEEDBACK LOOP ───────────────────────────────────────────
              } else {
                // ── END NUMNUM CHECK ────────────────────────────────────────────────
 
@@ -409,6 +419,11 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
                  await logAction(`🧠 Autopilot Decision: ${apDecision.decision.toUpperCase()} $${apDecision.amount} of ${apDecision.symbol}. Reason: ${apDecision.reasoning}`, true);
                  await executeTrade(apDecision.symbol, apDecision.decision, apDecision.amount);
                }
+               // Trade executed — reset NumNum block counter
+               await updateSettings({
+                 numNumBlocks: '0',
+                 numNumBlockedSymbol: '',
+               });
              } // end NumNum approved
            } // end Big Jon approved
         } else if (apDecision.decision === 'complete') {

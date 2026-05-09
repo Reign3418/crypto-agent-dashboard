@@ -28,6 +28,14 @@ export async function runNullCommander() {
     l.action?.includes('failed')
   );
 
+  // Build NumNum stall intelligence for NULL
+  const numNumBlocks    = parseInt(settings.numNumBlocks || '0');
+  const blockedSymbol   = settings.numNumBlockedSymbol || null;
+  const blockedPrice    = settings.numNumBlockedPrice   || null;
+  const numNumContext   = numNumBlocks > 0
+    ? `NumNum has blocked ${numNumBlocks} consecutive sell attempt(s) on ${blockedSymbol}. The market has not reached the required sell price of $${blockedPrice}. CIPHER keeps wanting to exit but the math won't clear.`
+    : `NumNum has not blocked any trades recently. The team is operating without friction.`;
+
   const prompt = `You are NULL, the Strategic Commander of the CIPHER dual-agent trading system.
 Your identity and mandate are defined here:
 
@@ -50,6 +58,9 @@ NULL may NOT disable the Emergency Stop.
 Here is CIPHER's last 60 minutes of relevant activity:
 ${JSON.stringify(tradeLines.slice(0, 40), null, 2)}
 
+NumNum Stall Intelligence (critical context for your directive):
+${numNumContext}
+
 Current portfolio open positions:
 ${JSON.stringify(settings.openPositions || {}, null, 2)}
 
@@ -65,7 +76,9 @@ Macro Trend Ledger (long-term context):
 Now apply your three-question strategic framework (NumNum handles fee math separately):
 1. Is there a clear momentum winner among the 9 assets in the last hour?
 2. Is CIPHER overtrading / churning without directional conviction? (>3 trades, no clear trend)
-3. Is the portfolio positioned correctly given the macro context and current open positions?
+3. Is the portfolio positioned correctly given the macro context, NumNum stall data, and current open positions?
+
+If NumNum has blocked many consecutive trades on the same asset, consider whether CIPHER should shift focus to a different asset with better momentum, or patiently hold the current position until price develops.
 
 Based ONLY on the data above, write a single coachNotes directive for CIPHER.
 Return ONLY the raw directive string. No JSON. No markdown. No explanation. Just the directive.`;
