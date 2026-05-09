@@ -1,6 +1,54 @@
 import { GoogleGenAI } from '@google/genai';
-import { logAction, saveScoutReport } from '../lib/db.js';
+import { logAction, saveScoutReport, updateSettings } from '../lib/db.js';
 import { runEvaluation } from '../lib/evaluator.js';
+
+/**
+ * NULL/CIPHER Sync Validator
+ * Runs before any trade is executed. Checks if CIPHER's proposed action
+ * directly conflicts with NULL's current strategic directive.
+ * If a conflict is detected, it triggers an auto-stop to protect capital.
+ *
+ * Returns { conflict: boolean, reason: string }
+ */
+async function checkNullCipherSync(ai, nullDirective, cipherDecision) {
+  // If NULL has no directive yet, no conflict possible
+  if (!nullDirective || nullDirective.trim() === '') {
+    return { conflict: false, reason: 'No NULL directive active.' };
+  }
+  // Only check when CIPHER wants to actively trade (not hold/complete/fail)
+  if (cipherDecision.decision !== 'buy' && cipherDecision.decision !== 'sell') {
+    return { conflict: false, reason: 'CIPHER is holding. No action to conflict.' };
+  }
+
+  const syncPrompt = `You are a conflict-detection arbitrator for a dual-agent trading system.
+
+NULL (Strategic Commander) issued this directive:
+"${nullDirective}"
+
+CIPHER (Tactical Agent) is about to execute this action:
+${JSON.stringify(cipherDecision, null, 2)}
+
+Does CIPHER's proposed action DIRECTLY CONTRADICT NULL's directive? 
+A conflict means NULL said to hold/stop/pause/avoid an asset and CIPHER is about to trade it anyway.
+If NULL said to focus on a specific asset and CIPHER is trading a different one, that is also a conflict.
+If NULL said to raise profit thresholds and CIPHER is selling at a loss or tiny margin, that is a conflict.
+
+Return ONLY valid JSON (no markdown):
+{ "conflict": true | false, "reason": "one sentence explanation" }`;
+
+  try {
+    const res = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: syncPrompt,
+    });
+    const raw = res.text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
+    return JSON.parse(raw);
+  } catch (e) {
+    // If the sync check itself fails, fail safe — do NOT block the trade
+    console.warn('[Sync Validator] Check failed, allowing trade:', e.message);
+    return { conflict: false, reason: 'Sync check error — defaulting to allow.' };
+  }
+}
 
 // Fetch all USD trading pairs from Gemini's public price feed
 async function getAllMovers() {
@@ -322,6 +370,18 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
         const apDecision = JSON.parse(rawApText);
         
         if (apDecision.decision === 'buy' || apDecision.decision === 'sell') {
+           // ── NULL/CIPHER SYNC VALIDATION ─────────────────────────────────────
+           // Before executing any trade, verify CIPHER's action aligns with NULL's directive.
+           // If they are out of sync, trigger auto-stop to prevent conflicting behavior.
+           const sync = await checkNullCipherSync(ai, settings.coachNotes, apDecision);
+           if (sync.conflict) {
+             await logAction(`🛑 AUTO-STOP: CIPHER/NULL CONFLICT DETECTED. ${sync.reason} CIPHER wanted to ${apDecision.decision.toUpperCase()} ${apDecision.symbol}. NULL's directive: "${(settings.coachNotes || '').slice(0, 100)}". System halted for human review.`, true);
+             await updateSettings({ autopilotEnabled: false });
+             return; // Abort trade execution entirely
+           }
+           await logAction(`✅ [SYNC] CIPHER & NULL aligned. Proceeding with ${apDecision.decision.toUpperCase()} ${apDecision.symbol}.`);
+           // ── END SYNC VALIDATION ─────────────────────────────────────────────
+
            const fundSrc = (apDecision.fundingSource || 'USD').toUpperCase();
            
            if (apDecision.decision === 'buy' && fundSrc !== 'USD') {
