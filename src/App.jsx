@@ -7,9 +7,11 @@ import MarketIntelligence from './components/MarketIntelligence';
 import ScoutPanel from './components/ScoutPanel';
 import StrategyPanel from './components/StrategyPanel';
 import TerminalView from './components/TerminalView';
+import NullCommandCenter from './components/NullCommandCenter';
 
 const TABS = [
   { id: 'terminal',  label: '🖥️ Terminal',   hash: '#terminal' },
+  { id: 'null',      label: '🧠 NULL',        hash: '#null' },
   { id: 'strategy',  label: '⚡ Strategy',   hash: '#strategy' },
   { id: 'logs',      label: '📋 Logs',       hash: '#logs' },
 ];
@@ -169,6 +171,13 @@ function App() {
           </div>
         )}
 
+
+        {/* NULL COMMAND CENTER TAB */}
+        {activeTab === 'null' && (
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <NullCommandCenter />
+          </div>
+        )}
 
         {/* STRATEGY TAB */}
         {activeTab === 'strategy' && (
