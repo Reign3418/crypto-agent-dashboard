@@ -370,9 +370,10 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
            // Big Jon steps in before any trade. If CIPHER and NULL are out of sync, he stops the fight.
            const sync = await checkNullCipherSync(ai, settings.coachNotes, apDecision);
            if (sync.conflict) {
-             await logAction(`🛑 BIG JON STOPS THE FIGHT: CIPHER/NULL CONFLICT DETECTED. ${sync.reason} CIPHER wanted to ${apDecision.decision.toUpperCase()} ${apDecision.symbol}. NULL's directive: "${(settings.coachNotes || '').slice(0, 100)}". System halted for human review.`, true);
-             await updateSettings({ autopilotEnabled: false });
-             // Don't return — let runScoutMission finish normally and return its report
+             // Big Jon blocks the trade — but does NOT kill autopilot.
+             // A conflict is a temporary misalignment, not an emergency.
+             // NULL will self-correct on its next hourly cycle.
+             await logAction(`🛑 BIG JON STOPS THE FIGHT: CIPHER/NULL CONFLICT DETECTED. ${sync.reason} CIPHER wanted to ${apDecision.decision.toUpperCase()} ${apDecision.symbol}. Trade blocked. Waiting for NULL's next directive.`, true);
            } else {
              await logAction(`🥊 Big Jon: CIPHER & NULL are aligned. Let's get it on! Proceeding with ${apDecision.decision.toUpperCase()} ${apDecision.symbol}.`);
              // ── END BIG JON CHECK ──────────────────────────────────────────────
