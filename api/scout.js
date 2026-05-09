@@ -397,8 +397,8 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
                const newBlockCount = prevBlocks + 1;
                await updateSettings({
                  numNumBlocks: newBlockCount.toString(),
-                 numNumBlockedSymbol: apDecision.symbol?.toUpperCase(),
-                 numNumBlockedPrice: numNumResult.targetSellPrice?.toString(),
+                 numNumBlockedSymbol: apDecision.symbol?.toUpperCase() ?? '',
+                 numNumBlockedPrice: numNumResult.targetSellPrice != null ? numNumResult.targetSellPrice.toString() : '0',
                  numNumLastBlockTime: Date.now().toString(),
                });
                await logAction(`⛔ NumNum BLOCKED the trade. (Block #${newBlockCount} on ${apDecision.symbol?.toUpperCase()}). CIPHER stands down. Waiting for better math.`);
