@@ -1,16 +1,78 @@
-# React + Vite
+# BASTION — Autonomous Multi-Agent Crypto Trading System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## What This Is
+BASTION is a fully autonomous, serverless multi-agent trading system built on Vercel + AWS DynamoDB. It operates 24/7 without any browser, laptop, or human required to stay active.
 
-Currently, two official plugins are available:
+The system manages a small crypto portfolio across 9 core assets using a four-agent architecture: a strategic commander, a tactical trader, a conflict referee, and a fee math calculator.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## The Team
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Agent | Role | Runs |
+|---|---|---|
+| **NULL** | Strategic Commander — issues hourly directives | Every 60 min |
+| **CIPHER** | Tactical Sniper — reads markets, executes trades | Every 5 min |
+| **Big Jon** | Conflict Referee — blocks misaligned trades | Every trade attempt |
+| **NumNum** | Fee Math Gate — blocks unprofitable trades | Every trade attempt |
 
-## Expanding the ESLint configuration
+For full details on each agent see `/agent-personas/`.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## Architecture
+
+```
+Vercel Cron (every 5 min)
+    └── api/cron.js
+        ├── api/scout.js (CIPHER + Big Jon + NumNum)
+        ├── api/null-commander.js (NULL — runs hourly)
+        ├── api/rollup.js (Deep Dive audit — on demand)
+        └── lib/numnum.js (pure fee math — no AI)
+
+AWS DynamoDB
+    └── settings table (openPositions, coachNotes, numNumBlocks, etc.)
+    └── logs table (all activity feed entries)
+```
+
+---
+
+## Trade Gate Order
+
+Every buy or sell clears four gates before capital moves:
+
+```
+1. CIPHER proposes (buy/sell/hold)
+2. Big Jon — CIPHER/NULL alignment check
+3. NumNum — fee viability math check
+4. executeTrade() — Gemini Exchange API
+```
+
+---
+
+## Key Rules
+
+- **Add USD only.** Never buy crypto manually on the same Gemini account. CIPHER will inherit unprotected positions with no cost basis and may sell them unexpectedly.
+- **The system never needs to be "turned off."** It runs autonomously on Vercel infrastructure. Shutdown means closing a work session, not stopping the website.
+- **To resume monitoring:** Open the dashboard, check the Activity Feed and NULL Command Center tab.
+
+---
+
+## Live Dashboard
+https://crypto-agent-dashboard.vercel.app
+
+---
+
+## Session Operations
+See `AGENT.md` for the full startup and shutdown sequence.
+
+---
+
+## Allowed Trading Assets
+BTC, ETH, SOL, XRP, LINK, DOGE, LTC, AVAX, BCH
+
+## Hardcoded Guardrails
+- Max 2 open positions at any time
+- 5% hard stop-loss on all positions (runs even when autopilot is off)
+- Min trade size $15.00 (NumNum enforced)
+- Min net profit 1.5% above buy price before selling (NumNum enforced)
