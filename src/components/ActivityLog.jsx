@@ -100,17 +100,11 @@ export default function ActivityLog({ isHalted, minimal = false }) {
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-scroll when not paused
-  useEffect(() => {
-    if (!paused && bottomRef.current) {
-      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [logs, paused]);
+  // Auto-scroll removed — newest logs show at TOP so no scrolling ever needed
 
   const handleResume = () => {
     setPaused(false);
     setNewCount(0);
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
   };
 
   // ── Filtering ─────────────────────────────────────────────────────────
@@ -121,7 +115,8 @@ export default function ActivityLog({ isHalted, minimal = false }) {
       if (activeFilter.levels && !activeFilter.levels.includes(log._cls.level)) return false;
       if (search && !log.action?.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
-    });
+    })
+    .reverse(); // newest first — no scrolling needed
 
   const counts = logs.reduce((acc, log) => {
     const cls = classifyLog(log.action);
@@ -242,7 +237,7 @@ export default function ActivityLog({ isHalted, minimal = false }) {
         </button>
       </div>
 
-      {/* Log list */}
+      {/* Log list — newest at top */}
       <div style={styles.logList} ref={containerRef}>
         {loading ? (
           <div style={{ padding: '20px', color: 'var(--text-muted)', textAlign: 'center' }}>
@@ -261,7 +256,6 @@ export default function ActivityLog({ isHalted, minimal = false }) {
             </div>
           ))
         )}
-        <div ref={bottomRef} />
       </div>
 
       {/* Status bar */}
@@ -272,7 +266,7 @@ export default function ActivityLog({ isHalted, minimal = false }) {
         {counts.error && <span style={{ color: '#ef4444' }}>❌ {counts.error} errors</span>}
         {counts.critical && <span style={{ color: '#ef4444' }}>🚨 {counts.critical} critical</span>}
         <span style={{ marginLeft: 'auto' }}>
-          {paused ? '⏸ PAUSED' : '● LIVE'}
+          {paused ? '⏸ PAUSED (fetching halted)' : '● LIVE · newest first'}
         </span>
       </div>
     </div>
