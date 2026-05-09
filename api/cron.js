@@ -53,7 +53,7 @@ export default async function handler(req, res) {
     // ── STEP 1: CIPHER — Tactical Scout (every tick) ─────────────────────────
     const { runScoutMission } = await import('./scout.js');
     const scoutData = await runScoutMission();
-    results.scout = `${scoutData.report?.length || 0} assets scouted`;
+    results.scout = `${scoutData?.report?.length || 0} assets scouted`;
 
     // ── STEP 2: Mission Progress (every 15 min) ───────────────────────────────
     if (now - timestamps.lastMissionTime >= FIFTEEN_MIN) {

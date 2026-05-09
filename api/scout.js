@@ -372,44 +372,43 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
            if (sync.conflict) {
              await logAction(`🛑 BIG JON STOPS THE FIGHT: CIPHER/NULL CONFLICT DETECTED. ${sync.reason} CIPHER wanted to ${apDecision.decision.toUpperCase()} ${apDecision.symbol}. NULL's directive: "${(settings.coachNotes || '').slice(0, 100)}". System halted for human review.`, true);
              await updateSettings({ autopilotEnabled: false });
-             return; // Abort trade execution entirely
-           }
-           await logAction(`🥊 Big Jon: CIPHER & NULL are aligned. Let's get it on! Proceeding with ${apDecision.decision.toUpperCase()} ${apDecision.symbol}.`);
-           // ── END BIG JON CHECK ──────────────────────────────────────────────
-
-           // ── NUMNUM FEE VIABILITY CHECK ───────────────────────────────────────
-           // NumNum does the math so CIPHER doesn't have to. Pure arithmetic gate.
-           const savedPos = (settings.openPositions || {})[apDecision.symbol?.toUpperCase()];
-           const livePrice = reportForStorage.find(a => a.symbol === apDecision.symbol?.toUpperCase())?.price || 0;
-           const numNumResult = runNumNum({
-             side: apDecision.decision,
-             usdAmount: apDecision.amount,
-             currentPrice: parseFloat(livePrice),
-             buyPrice: savedPos?.buyPrice || null,
-           });
-           await logAction(`🔢 NumNum: ${numNumResult.reason}`);
-           if (!numNumResult.approved) {
-             await logAction(`⛔ NumNum BLOCKED the trade. CIPHER stands down. Waiting for better math.`);
-             return;
-           }
-           // ── END NUMNUM CHECK ────────────────────────────────────────────────
-
-           const fundSrc = (apDecision.fundingSource || 'USD').toUpperCase();
-           
-           if (apDecision.decision === 'buy' && fundSrc !== 'USD') {
-             if (!liquidatable.includes(fundSrc)) {
-               await logAction(`❌ Autopilot tried to liquidate ${fundSrc}, but it is not in the approved liquidatable assets list! Trade aborted.`);
-             } else {
-               await logAction(`🧠 Autopilot Decision: LIQUIDATE ${fundSrc} to fund BUY of ${apDecision.symbol}. Reason: ${apDecision.reasoning}`, true);
-               // 1. Sell the funding source
-               await executeTrade(fundSrc, 'sell', apDecision.amount);
-               // 2. Buy the target asset
-               await executeTrade(apDecision.symbol, 'buy', apDecision.amount);
-             }
+             // Don't return — let runScoutMission finish normally and return its report
            } else {
-             await logAction(`🧠 Autopilot Decision: ${apDecision.decision.toUpperCase()} $${apDecision.amount} of ${apDecision.symbol}. Reason: ${apDecision.reasoning}`, true);
-             await executeTrade(apDecision.symbol, apDecision.decision, apDecision.amount);
-           }
+             await logAction(`🥊 Big Jon: CIPHER & NULL are aligned. Let's get it on! Proceeding with ${apDecision.decision.toUpperCase()} ${apDecision.symbol}.`);
+             // ── END BIG JON CHECK ──────────────────────────────────────────────
+
+             // ── NUMNUM FEE VIABILITY CHECK ───────────────────────────────────────
+             // NumNum does the math so CIPHER doesn't have to. Pure arithmetic gate.
+             const savedPos = (settings.openPositions || {})[apDecision.symbol?.toUpperCase()];
+             const livePrice = reportForStorage.find(a => a.symbol === apDecision.symbol?.toUpperCase())?.price || 0;
+             const numNumResult = runNumNum({
+               side: apDecision.decision,
+               usdAmount: apDecision.amount,
+               currentPrice: parseFloat(livePrice),
+               buyPrice: savedPos?.buyPrice || null,
+             });
+             await logAction(`🔢 NumNum: ${numNumResult.reason}`);
+             if (!numNumResult.approved) {
+               await logAction(`⛔ NumNum BLOCKED the trade. CIPHER stands down. Waiting for better math.`);
+               // Don't return — let runScoutMission finish normally and return its report
+             } else {
+               // ── END NUMNUM CHECK ────────────────────────────────────────────────
+
+               const fundSrc = (apDecision.fundingSource || 'USD').toUpperCase();
+               if (apDecision.decision === 'buy' && fundSrc !== 'USD') {
+                 if (!liquidatable.includes(fundSrc)) {
+                   await logAction(`❌ Autopilot tried to liquidate ${fundSrc}, but it is not in the approved liquidatable assets list! Trade aborted.`);
+                 } else {
+                   await logAction(`🧠 Autopilot Decision: LIQUIDATE ${fundSrc} to fund BUY of ${apDecision.symbol}. Reason: ${apDecision.reasoning}`, true);
+                   await executeTrade(fundSrc, 'sell', apDecision.amount);
+                   await executeTrade(apDecision.symbol, 'buy', apDecision.amount);
+                 }
+               } else {
+                 await logAction(`🧠 Autopilot Decision: ${apDecision.decision.toUpperCase()} $${apDecision.amount} of ${apDecision.symbol}. Reason: ${apDecision.reasoning}`, true);
+                 await executeTrade(apDecision.symbol, apDecision.decision, apDecision.amount);
+               }
+             } // end NumNum approved
+           } // end Big Jon approved
         } else if (apDecision.decision === 'complete') {
            const { updateSettings } = await import('../lib/db.js');
            const completions = (settings.missionCompletions || 0) + 1;
