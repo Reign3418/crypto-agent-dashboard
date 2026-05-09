@@ -4,10 +4,10 @@ import { runEvaluation } from '../lib/evaluator.js';
 import { runNumNum } from '../lib/numnum.js';
 
 /**
- * NULL/CIPHER Sync Validator
+ * Big Jon — The Conflict Referee
  * Runs before any trade is executed. Checks if CIPHER's proposed action
  * directly conflicts with NULL's current strategic directive.
- * If a conflict is detected, it triggers an auto-stop to protect capital.
+ * If a conflict is detected, Big Jon stops the fight and triggers an auto-stop.
  *
  * Returns { conflict: boolean, reason: string }
  */
@@ -366,17 +366,16 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
         const apDecision = JSON.parse(rawApText);
         
         if (apDecision.decision === 'buy' || apDecision.decision === 'sell') {
-           // ── NULL/CIPHER SYNC VALIDATION ─────────────────────────────────────
-           // Before executing any trade, verify CIPHER's action aligns with NULL's directive.
-           // If they are out of sync, trigger auto-stop to prevent conflicting behavior.
+           // ── BIG JON CONFLICT CHECK ──────────────────────────────────────────
+           // Big Jon steps in before any trade. If CIPHER and NULL are out of sync, he stops the fight.
            const sync = await checkNullCipherSync(ai, settings.coachNotes, apDecision);
            if (sync.conflict) {
-             await logAction(`🛑 AUTO-STOP: CIPHER/NULL CONFLICT DETECTED. ${sync.reason} CIPHER wanted to ${apDecision.decision.toUpperCase()} ${apDecision.symbol}. NULL's directive: "${(settings.coachNotes || '').slice(0, 100)}". System halted for human review.`, true);
+             await logAction(`🛑 BIG JON STOPS THE FIGHT: CIPHER/NULL CONFLICT DETECTED. ${sync.reason} CIPHER wanted to ${apDecision.decision.toUpperCase()} ${apDecision.symbol}. NULL's directive: "${(settings.coachNotes || '').slice(0, 100)}". System halted for human review.`, true);
              await updateSettings({ autopilotEnabled: false });
              return; // Abort trade execution entirely
            }
-           await logAction(`✅ [SYNC] CIPHER & NULL aligned. Proceeding with ${apDecision.decision.toUpperCase()} ${apDecision.symbol}.`);
-           // ── END SYNC VALIDATION ─────────────────────────────────────────────
+           await logAction(`🥊 Big Jon: CIPHER & NULL are aligned. Let's get it on! Proceeding with ${apDecision.decision.toUpperCase()} ${apDecision.symbol}.`);
+           // ── END BIG JON CHECK ──────────────────────────────────────────────
 
            // ── NUMNUM FEE VIABILITY CHECK ───────────────────────────────────────
            // NumNum does the math so CIPHER doesn't have to. Pure arithmetic gate.
