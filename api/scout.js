@@ -379,13 +379,15 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
 
              // ── NUMNUM FEE VIABILITY CHECK ───────────────────────────────────────
              // NumNum does the math so CIPHER doesn't have to. Pure arithmetic gate.
+             // Use tickerMap (already verified) instead of reportForStorage to get live price.
              const savedPos = (settings.openPositions || {})[apDecision.symbol?.toUpperCase()];
-             const livePrice = reportForStorage.find(a => a.symbol === apDecision.symbol?.toUpperCase())?.price || 0;
+             const livePriceData = tickerMap[apDecision.symbol?.toUpperCase()];
+             const livePrice = livePriceData?.price || savedPos?.buyPrice || 0;
              const numNumResult = runNumNum({
                side: apDecision.decision,
                usdAmount: apDecision.amount,
                currentPrice: parseFloat(livePrice),
-               buyPrice: savedPos?.buyPrice || null,
+               buyPrice: savedPos?.buyPrice ? parseFloat(savedPos.buyPrice) : null,
              });
              await logAction(`🔢 NumNum: ${numNumResult.reason}`);
              if (!numNumResult.approved) {
