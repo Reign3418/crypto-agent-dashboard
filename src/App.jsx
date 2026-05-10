@@ -34,7 +34,8 @@ function App() {
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [isHalted, setIsHalted] = useState(false);
   const [strategyAlerts, setStrategyAlerts] = useState(0);
-  const [autopilotEnabled, setAutopilotEnabled] = useState(true); // optimistic default
+  const [autopilotEnabled, setAutopilotEnabled] = useState(true);
+  const [syncState, setSyncState] = useState(null); // null | 'running' | 'done' | 'error'
 
   // Poll autopilot state every 20s so banner reflects reality across all tabs
   useEffect(() => {
@@ -65,6 +66,21 @@ function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: 'User hit the Emergency Stop button. Log that the system was halted. Do not execute any tools.' })
     }).catch(() => {});
+  };
+
+  const handleForceSync = async () => {
+    if (syncState === 'running') return;
+    setSyncState('running');
+    try {
+      const r = await fetch('/api/force-sync', { method: 'POST' });
+      const data = await r.json();
+      setSyncState(data.ok ? 'done' : 'error');
+      // Reset label after 8 seconds
+      setTimeout(() => setSyncState(null), 8000);
+    } catch {
+      setSyncState('error');
+      setTimeout(() => setSyncState(null), 5000);
+    }
   };
 
   return (
@@ -159,6 +175,24 @@ function App() {
             ⧉ Pop-out Terminal
           </button>
         </div>
+
+        {/* Force Sync */}
+        <button
+          onClick={handleForceSync}
+          disabled={syncState === 'running'}
+          style={{
+            flexShrink: 0,
+            display: 'flex', alignItems: 'center', gap: '6px',
+            background: syncState === 'done' ? '#16a34a' : syncState === 'error' ? '#7f1d1d' : syncState === 'running' ? '#1e3a5f' : '#0f2d4a',
+            border: `1px solid ${syncState === 'done' ? '#22c55e' : syncState === 'error' ? '#ef4444' : '#38bdf8'}`,
+            borderRadius: '8px', color: syncState === 'done' ? '#22c55e' : syncState === 'error' ? '#ef4444' : '#38bdf8',
+            fontSize: '0.8rem', fontWeight: 700, padding: '8px 14px',
+            cursor: syncState === 'running' ? 'not-allowed' : 'pointer',
+            transition: 'all 0.3s', fontFamily: 'monospace',
+          }}
+        >
+          {syncState === 'running' ? '⏳ Syncing…' : syncState === 'done' ? '✅ Synced' : syncState === 'error' ? '❌ Sync Failed' : '🔄 Force Sync'}
+        </button>
 
         {/* Emergency Stop */}
         <div className="emergency-stop-container">
