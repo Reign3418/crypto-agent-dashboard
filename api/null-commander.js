@@ -41,6 +41,10 @@ export async function runNullCommander() {
     ? settings.tankReports[0]
     : null;
 
+  // Tank's live operating envelope — recalibrates every 6h
+  const tankAggressionLevel = settings.tankAggressionLevel || 'neutral';
+  const tankRegimeDetected  = settings.tankRegimeDetected  || 'unknown';
+
   const prompt = `You are NULL, the Strategic Commander of CIPHER — an autonomous multi-agent crypto trading system.
 
 COMMAND CHAIN: TANK (12h, Chief of Operations) → YOU (1h, Strategic Commander) → CIPHER (5min, Tactical Execution)
@@ -64,10 +68,26 @@ NULL may NOT disable the Emergency Stop.
 
 ---
 
-TANK'S CURRENT STRATEGIC FRAME (12h Chief of Operations briefing):
-"${latestTankReport ? latestTankReport.briefing : 'No Tank report yet — operating without 12h strategic context.'}"
+TANK'S CURRENT STRATEGIC FRAME (6h Chief of Operations briefing):
+"${latestTankReport ? latestTankReport.briefing : 'No Tank report yet — operating without 6h strategic context.'}"
 Tank system assessment: ${latestTankReport ? latestTankReport.systemHealth : 'UNKNOWN'}
 Current mission (set by ${settings.missionSetBy || 'Human'}): "${settings.missionDirective || 'No active mission.'}"
+
+TANK OPERATING ENVELOPE (live calibration):
+Aggression Level: ${tankAggressionLevel.toUpperCase()} — ${
+  tankAggressionLevel === 'aggressive'
+    ? 'Strong performance — push CIPHER toward momentum trades with higher conviction. Shorter holds acceptable.'
+    : tankAggressionLevel === 'conservative'
+    ? 'Performance degrading — direct CIPHER to reduce trade frequency, hold convictions longer, prioritize capital safety.'
+    : 'Normal operations — balanced tactical tempo.'
+}
+Market Regime: ${tankRegimeDetected} — ${
+  tankRegimeDetected === 'trending_bull' ? 'Sustained upward momentum — favor momentum entries and wider profit targets.'
+  : tankRegimeDetected === 'trending_bear' ? 'Downward pressure — tighten stops, direct CIPHER to prefer cash over new positions.'
+  : tankRegimeDetected === 'ranging' ? 'Assets oscillating in a band — tighter profit targets, avoid chasing breakouts.'
+  : tankRegimeDetected === 'high_volatility' ? 'High volatility — smallest positions, tightest stops, highest caution.'
+  : 'Regime unknown — default to neutral posture.'
+}
 
 ---
 

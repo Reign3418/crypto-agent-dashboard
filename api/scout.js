@@ -261,6 +261,13 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
       const recentLogs = await getRecentLogs().catch(() => []);
       const liveNews = await fetchLiveNews();
 
+      // Read Tank's live operating envelope (recalibrates every 6h)
+      const tankAggressionLevel  = settings.tankAggressionLevel  || 'neutral';
+      const tankRegimeDetected   = settings.tankRegimeDetected   || 'ranging';
+      const tankMinTradeSize     = parseFloat(settings.tankMinTradeSize  || '15');
+      const tankMaxTradeSize     = parseFloat(settings.tankMaxTradeSize  || '9999');
+      const tankCapEffMode       = settings.tankCapitalEfficiencyMode === true || settings.tankCapitalEfficiencyMode === 'true';
+
       // BUG 3 FIX: Hard/Trailing stop-loss ALWAYS runs — regardless of autopilot toggle.
       // If you turn off autopilot, you still need capital protection.
       const { executeTrade, getPortfolioBalances } = await import('../lib/trade.js');
@@ -323,7 +330,19 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
       }
 
       if (panicSold) {
-        return res.status(200).json({ success: true, message: 'Stop-Loss triggered. AI Autopilot bypassed for this cycle.' });
+        // ── REACTIVE TANK TRIGGER: Stop-loss fired — recalibrate immediately ──────
+        const lastTankReactive = parseInt(settings.tankLastReactiveRun || '0');
+        if ((Date.now() - lastTankReactive) / 60000 > 15) {
+          try {
+            await logAction('⚡ [TANK] Reactive trigger: stop-loss fired — recalibrating operating envelope now.', true);
+            const { runTank } = await import('./tank.js');
+            await runTank();
+            await updateSettings({ tankLastReactiveRun: Date.now().toString() });
+          } catch (te) {
+            await logAction(`⚠️ Reactive Tank trigger failed (non-fatal): ${te.message}`);
+          }
+        }
+        return { panicSold: true, report: finalReport };
       }
 
       if (settings.autopilotEnabled) {
@@ -377,10 +396,25 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
 
 COMMAND CHAIN: TANK (12h strategy) → NULL (1h tactics) → YOU (5min execution)
 
-TANK OPERATIONAL BRIEFING (Chief of Operations — 12h assessment):
+TANK OPERATIONAL BRIEFING (Chief of Operations — 6h assessment):
 "${latestTankReport ? latestTankReport.briefing : 'No Tank report yet — this is an early system cycle.'}"
 Mission set by: ${missionSetBy} | Mission completions to date: ${missionCompletions}
 System health: ${latestTankReport ? latestTankReport.systemHealth : 'UNKNOWN'}
+
+TANK OPERATING ENVELOPE (live calibration — recalibrates every 6h):
+Aggression Level: ${tankAggressionLevel.toUpperCase()} — ${
+  tankAggressionLevel === 'aggressive' ? 'Performance is strong. Chase momentum with larger, higher-conviction trades.'
+  : tankAggressionLevel === 'conservative' ? 'Performance is degrading. Hold tight. Smaller bets. Prioritize capital safety above all.'
+  : 'Normal operations. Balanced approach.'
+}
+Market Regime: ${tankRegimeDetected} — ${
+  tankRegimeDetected === 'trending_bull' ? 'Sustained upward momentum across the market. Favor momentum entries.'
+  : tankRegimeDetected === 'trending_bear' ? 'Sustained downward pressure. Prefer cash. Tighten all stops.'
+  : tankRegimeDetected === 'ranging' ? 'Assets oscillating in bands. Tighter profit targets. Avoid chasing breakouts.'
+  : 'High volatility. Smallest positions. Tightest stops. Maximum caution.'
+}
+Min trade size (Tank-set): $${tankMinTradeSize} | Max trade size (Tank-set): $${tankMaxTradeSize < 9000 ? '$' + tankMaxTradeSize : 'no hard cap'}
+${tankCapEffMode ? '🔴 CAPITAL EFFICIENCY MODE ACTIVE: Fee drag is high. Only execute trades that clearly justify the cost. Skip marginal setups.' : ''}
 
 Your MISSION DIRECTIVE (set by ${missionSetBy}):
 "${missionDirective}"
@@ -490,7 +524,14 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
                 }
               }
             }
-            // ── END BUY PRE-CHECKS ────────────────────────────────────────────────────────
+            // ── END BUY PRE-CHECKS ────────────────────────────────────────────────────────────
+            // Gate 3: Max trade size — cap CIPHER's position to Tank's limit before Big Jon checks.
+            // We cap rather than block: the trade still happens, just at the right size.
+            if (!buyBlocked && tankMaxTradeSize < 9000 && apDecision.amount > tankMaxTradeSize) {
+              await logAction(`🛡️ SIZE CAPPED [${apDecision.symbol}]: CIPHER proposed $${apDecision.amount.toFixed(2)} but Tank's max is $${tankMaxTradeSize}. Adjusting to max.`);
+              apDecision.amount = tankMaxTradeSize;
+            }
+
             if (!buyBlocked) {
            // ── BIG JON CONFLICT CHECK ──────────────────────────────────────────
            // Big Jon steps in before any trade. If CIPHER and NULL are out of sync, he stops the fight.
@@ -514,13 +555,11 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
                side: apDecision.decision,
                usdAmount: apDecision.amount,
                currentPrice: parseFloat(livePrice),
-               // If no stored cost basis, use live price as break-even fallback.
-               // NumNum will compute 0% gain → -0.8% net after fees → BLOCKED.
-               // This is safer than auto-approving when cost basis is unknown.
                buyPrice: savedPos?.buyPrice ? parseFloat(savedPos.buyPrice) : (parseFloat(livePrice) || null),
-               // Tank-calibrated thresholds — updated every 12h based on Dozer's data
-               numNumFloor:    settings.numNumFloor    ?? null,
-               numNumStopLoss: settings.numNumStopLoss ?? null,
+               // Tank-calibrated thresholds — updated every 6h based on Dozer's data
+               numNumFloor:         settings.numNumFloor    ?? null,
+               numNumStopLoss:      settings.numNumStopLoss ?? null,
+               minTradeSizeOverride: tankMinTradeSize,
              });
              await logAction(`🔢 NumNum: ${numNumResult.reason}`);
              if (!numNumResult.approved) {

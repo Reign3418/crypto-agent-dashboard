@@ -18,9 +18,10 @@
 
 import { logAction, getSettings, updateSettings } from '../lib/db.js';
 
-const FIFTEEN_MIN = 15 * 60 * 1000;
-const SIXTY_MIN   = 60 * 60 * 1000;
-const TWELVE_HR   = 12 * 60 * 60 * 1000;
+const FIFTEEN_MIN    = 15 * 60 * 1000;
+const SIXTY_MIN      = 60 * 60 * 1000;
+const SIX_HR         =  6 * 60 * 60 * 1000; // Tank recalibrates every 6h
+const TWELVE_HR      = 12 * 60 * 60 * 1000; // Macro ledger still runs every 12h
 const TWENTY_FOUR_HR = 24 * 60 * 60 * 1000;
 
 export default async function handler(req, res) {
@@ -123,9 +124,10 @@ export default async function handler(req, res) {
     }
 
 
-    // ── STEP 5: 12H Macro Ledger + TANK ──────────────────────────────────────
-
-    if (timeLeft() > 15000 && now - timestamps.last12HTime >= TWELVE_HR) {
+    // ── STEP 5: 12H Macro Ledger + TANK dedicated cron handles Tank every 6h ───────────
+    // Tank now runs via tank-cron (0 */6 * * *). The gate here is a FALLBACK ONLY
+    // in case tank-cron missed a run. Uses SIX_HR so it aligns with the new cadence.
+    if (timeLeft() > 15000 && now - timestamps.last12HTime >= SIX_HR) {
       try {
         const { default: rollupHandler } = await import('./rollup.js');
         const mockReq = { method: 'POST', query: { task: '12h' }, headers: { host: req.headers.host } };

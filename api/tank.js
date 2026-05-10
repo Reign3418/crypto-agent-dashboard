@@ -3,12 +3,13 @@ import { getSettings, updateSettings, logAction, getRecentLogs } from '../lib/db
 
 /**
  * TANK — Chief of Operations
- * Runs every 12 hours via cron.js.
+ * Runs every 6 hours via tank-cron.js (dedicated cron) and cron.js (fallback).
  *
  * Tank's mandate:
  *   1. Assess system health across all agents
  *   2. Set the mission directive based on demonstrated performance
  *   3. Write a plain-language briefing for the human operator
+ *   4. Calibrate the full operating envelope: trade sizes, aggression, market regime
  *
  * Tank's only capital rule: PROTECT CAPITAL.
  * Tank sets ambitious-but-achievable goals grounded in real trade math.
@@ -20,7 +21,7 @@ export async function runTank() {
 
   const [settings, recentLogs] = await Promise.all([
     getSettings(),
-    getRecentLogs(720), // last 12 hours of logs
+    getRecentLogs(360), // last 6 hours of logs
   ]);
 
   // ── Build performance intelligence ────────────────────────────────────────
@@ -66,7 +67,7 @@ export async function runTank() {
 
 Your identity: You are named after Tank from The Matrix — the operator who never goes into the simulation but sees every feed, knows where every agent is, and keeps the mission viable.
 
-You run every 12 hours. You are the only agent with full visibility across all time. CIPHER sees 5 minutes. NULL sees 60 minutes. You see everything.
+You run every 6 hours. You are the only agent with full visibility across all time. CIPHER sees 5 minutes. NULL sees 60 minutes. You see everything.
 
 Your mandate:
 1. PROTECT CAPITAL above all else. No goal you set should risk the fund's survival.
@@ -114,7 +115,7 @@ ${numNumBlocks > 0
 NumNum gate — current calibration (Tank sets this each cycle):
   Floor: ${settings.numNumFloor || '1.5'}% minimum net profit
   Stop-loss: ${settings.numNumStopLoss || '5.0'}% drawdown trigger
-  Last set by: Tank (changes each 12h cycle based on Dozer performance)
+  Last set by: Tank (changes each 6h cycle based on Dozer performance)
 
 Recent agent events (last 12 hours):
 ${JSON.stringify(tradeEvents.slice(0, 30), null, 2)}
@@ -157,6 +158,17 @@ MISSION DIRECTIVE RULES:
 
 ---
 
+AGGRESSION LEVEL GUIDANCE (you assess this from the data above):
+- "conservative": win rate < 35%, OR current streak ≤ -3, OR multiple stop-losses fired — direct CIPHER to hold tight, trade less
+- "neutral": normal operations, balanced calibration
+- "aggressive": win rate > 60% AND fee drag < 40% AND positive streak ≥ 2 — CIPHER should chase momentum with larger conviction
+
+MARKET REGIME GUIDANCE (classify based on macro ledger + recent scout data):
+- "trending_bull": sustained upward price action across multiple assets
+- "trending_bear": sustained downward pressure, multiple assets falling
+- "ranging": assets oscillating within a band without clear trend
+- "high_volatility": large swings in either direction, high uncertainty
+
 Return ONLY valid JSON (no markdown, no code blocks):
 {
   "missionDirective": "The new mission directive for CIPHER — specific, achievable, capital-protective",
@@ -169,8 +181,10 @@ Return ONLY valid JSON (no markdown, no code blocks):
     "numNum": "HEALTHY | MONITOR | CRITICAL — one sentence why"
   },
   "systemHealth": "STABLE | CAUTION | CRITICAL",
-  "briefing": "2-3 sentences in plain English for the human operator: what happened in the last 12 hours, what changed, what the team is watching. Write like a confident ops manager, not like an AI.",
-  "capitalRisk": "LOW | MEDIUM | HIGH"
+  "briefing": "2-3 sentences in plain English for the human operator: what happened in the last 6 hours, what changed, what the team is watching. Write like a confident ops manager, not like an AI.",
+  "capitalRisk": "LOW | MEDIUM | HIGH",
+  "aggressionLevel": "conservative | neutral | aggressive",
+  "regimeDetected": "trending_bull | trending_bear | ranging | high_volatility"
 }`;
 
   const aiRes = await ai.models.generateContent({
@@ -193,11 +207,13 @@ Return ONLY valid JSON (no markdown, no code blocks):
       systemHealth: 'UNKNOWN',
       briefing: 'Tank encountered a parse error on this report cycle. All systems maintaining current state.',
       capitalRisk: 'LOW',
+      aggressionLevel: 'neutral',
+      regimeDetected: 'ranging',
     };
   }
 
   // ── Build the report object ───────────────────────────────────────────────
-  const nextRunMs = 12 * 60 * 60 * 1000;
+  const nextRunMs = 6 * 60 * 60 * 1000; // 6h cadence
   const report = {
     timestamp: now.toISOString(),
     period,
@@ -208,6 +224,8 @@ Return ONLY valid JSON (no markdown, no code blocks):
     agentHealth: tankOutput.agentHealth,
     systemHealth: tankOutput.systemHealth,
     capitalRisk: tankOutput.capitalRisk,
+    aggressionLevel: tankOutput.aggressionLevel || 'neutral',
+    regimeDetected: tankOutput.regimeDetected || 'ranging',
     briefing: tankOutput.briefing,
     nextRunAt: new Date(Date.now() + nextRunMs).toISOString(),
   };
@@ -264,11 +282,41 @@ Return ONLY valid JSON (no markdown, no code blocks):
     calibrationReason += ' | risk LOW — stop-loss widened to 7% / trail 4%';
   }
 
-  // Clamp to safe operating bounds
-  numNumFloor    = parseFloat(Math.min(Math.max(numNumFloor, 1.0), 4.0).toFixed(1));
+  // Clamp floor and stop to safe operating bounds
+  numNumFloor    = parseFloat(Math.min(Math.max(numNumFloor, 0.5), 4.0).toFixed(1));
   numNumStopLoss = parseFloat(Math.min(Math.max(numNumStopLoss, 2.0), 10.0).toFixed(1));
   trailingStopLoss = parseFloat(Math.min(Math.max(trailingStopLoss, 1.5), 6.0).toFixed(1));
-  // ── End Calibration ──────────────────────────────────────────────────────
+
+  // ── NEW: Position Sizing — dynamic min/max trade sizes based on liquid capital ──────
+  const liquidUSD = dozerReport?.capitalBalance?.liquidUSD || 0;
+
+  let minTradeSize;
+  if (liquidUSD >= 750)      minTradeSize = 50;
+  else if (liquidUSD >= 300) minTradeSize = 35;
+  else if (liquidUSD >= 100) minTradeSize = 20;
+  else                       minTradeSize = 15;
+
+  let maxTradePct = 0.15; // default 15% of liquid
+  if (tankOutput.capitalRisk === 'HIGH')   maxTradePct = 0.10;
+  else if (tankOutput.capitalRisk === 'LOW') maxTradePct = 0.20;
+  let maxTradeSize = liquidUSD > 0 ? liquidUSD * maxTradePct : 50;
+
+  // Clamp sizes to safe bounds
+  minTradeSize = parseFloat(Math.min(Math.max(minTradeSize, 15), 75).toFixed(0));
+  maxTradeSize = parseFloat(Math.min(Math.max(maxTradeSize, 25), liquidUSD * 0.25 || 200).toFixed(0));
+
+  // ── NEW: Capital Efficiency Mode — fees eating > 30% of gross PnL ───────────────
+  const capitalEfficiencyMode = feeDragPct !== null && feeDragPct > 30;
+
+  // ── NEW: Clamp AI-returned aggressionLevel and regimeDetected ──────────────────
+  const validAggression = ['conservative', 'neutral', 'aggressive'];
+  const aggressionLevel = validAggression.includes(tankOutput.aggressionLevel)
+    ? tankOutput.aggressionLevel : 'neutral';
+
+  const validRegimes = ['trending_bull', 'trending_bear', 'ranging', 'high_volatility'];
+  const regimeDetected = validRegimes.includes(tankOutput.regimeDetected)
+    ? tankOutput.regimeDetected : 'ranging';
+  // ── End Calibration ────────────────────────────────────────────────────────────────
 
   // ── Write everything to DynamoDB ──────────────────────────────────────────
   await updateSettings({
@@ -276,9 +324,14 @@ Return ONLY valid JSON (no markdown, no code blocks):
     missionDirective: report.missionDirective,
     missionSetBy: 'Tank',
     missionSetAt: now.toISOString(),
-    numNumFloor:    numNumFloor.toString(),
-    numNumStopLoss: numNumStopLoss.toString(),
-    trailingStopLoss: trailingStopLoss.toString(),
+    numNumFloor:            numNumFloor.toString(),
+    numNumStopLoss:         numNumStopLoss.toString(),
+    trailingStopLoss:       trailingStopLoss.toString(),
+    tankMinTradeSize:       minTradeSize.toString(),
+    tankMaxTradeSize:       maxTradeSize.toString(),
+    tankCapitalEfficiencyMode: capitalEfficiencyMode,
+    tankAggressionLevel:    aggressionLevel,
+    tankRegimeDetected:     regimeDetected,
   });
 
   // ── Log Tank's activity ───────────────────────────────────────────────────
@@ -290,7 +343,7 @@ Return ONLY valid JSON (no markdown, no code blocks):
   );
 
   await logAction(
-    `📊 [TANK] NumNum calibrated → floor: ${numNumFloor}% | stop: ${numNumStopLoss}% | trail: ${trailingStopLoss}% | reason: ${calibrationReason}`
+    `📊 [TANK] Calibrated → floor: ${numNumFloor}% | stop: ${numNumStopLoss}% | trail: ${trailingStopLoss}% | min: $${minTradeSize} | max: $${maxTradeSize} | aggression: ${aggressionLevel} | regime: ${regimeDetected} | capEffMode: ${capitalEfficiencyMode} | reason: ${calibrationReason}`
   );
 
   if (report.missionChanged) {

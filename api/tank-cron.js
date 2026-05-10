@@ -24,7 +24,7 @@ export default async function handler(req, res) {
 
   const startTime = Date.now();
   try {
-    await logAction(`⏰ [TANK-CRON] Dedicated 12h cycle starting...`, true);
+    await logAction(`⏰ [TANK-CRON] Dedicated 6h cycle starting...`, true);
 
     // Run 12H macro ledger first — Tank reads it for context
     try {
