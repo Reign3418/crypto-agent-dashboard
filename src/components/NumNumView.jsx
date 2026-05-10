@@ -4,23 +4,36 @@ const GEMINI_FEE_RATE = 0.004;
 const ROUND_TRIP_FEE  = GEMINI_FEE_RATE * 2; // 0.8%
 
 // Run the same math NumNum runs — mirrored here for live display
-function computeGateCheck(buyPrice, currentPrice, floor, stopLoss) {
+function computeGateCheck(buyPrice, currentPrice, floor, stopLoss, highWaterMark, trailingStopLoss) {
   if (!buyPrice || !currentPrice || buyPrice <= 0) return null;
   const minProfit  = (parseFloat(floor) || 1.5) / 100;
   const stopPct    = parseFloat(stopLoss) || 5.0;
+  const trailPct   = parseFloat(trailingStopLoss) || 3.0;
   const feeDragPct = ROUND_TRIP_FEE * 100;
+
+  const hwm = highWaterMark || buyPrice;
 
   const currentPctFromBuy = ((currentPrice - buyPrice) / buyPrice) * 100;
   const breakEvenPrice    = buyPrice * (1 + ROUND_TRIP_FEE);
   const targetSellPrice   = buyPrice * (1 + ROUND_TRIP_FEE + minProfit);
   const netProfitPct      = currentPctFromBuy - feeDragPct;
-  const isStopLoss        = currentPctFromBuy < -stopPct;
+  
+  const dropFromBuyPct    = ((buyPrice - currentPrice) / buyPrice) * 100;
+  const dropFromPeakPct   = ((hwm - currentPrice) / hwm) * 100;
+
+  const isHardStop        = dropFromBuyPct >= stopPct;
+  const isTrailStop       = dropFromPeakPct >= trailPct;
+  const isStopLoss        = isHardStop || isTrailStop;
+
+  const trailTriggerPrice = hwm * (1 - (trailPct / 100));
+
   const isProfitable      = netProfitPct >= (minProfit * 100);
   const distanceToTarget  = ((targetSellPrice - currentPrice) / currentPrice) * 100;
 
   let verdict, verdictColor, verdictIcon;
   if (isStopLoss) {
-    verdict = 'STOP-LOSS EXIT'; verdictColor = '#f97316'; verdictIcon = '🔴';
+    verdict = isTrailStop ? 'TRAIL-STOP EXIT' : 'HARD-STOP EXIT'; 
+    verdictColor = '#f97316'; verdictIcon = '🔴';
   } else if (isProfitable) {
     verdict = 'WOULD APPROVE'; verdictColor = '#22c55e'; verdictIcon = '✅';
   } else {
@@ -37,11 +50,13 @@ function computeGateCheck(buyPrice, currentPrice, floor, stopLoss) {
     breakEvenPrice: parseFloat(breakEvenPrice.toFixed(4)),
     targetSellPrice: parseFloat(targetSellPrice.toFixed(4)),
     distanceToTarget: parseFloat(distanceToTarget.toFixed(3)),
+    trailTriggerPrice: parseFloat(trailTriggerPrice.toFixed(4)),
+    hwm: parseFloat(hwm.toFixed(4)),
     progress,
     verdict, verdictColor, verdictIcon,
-    isStopLoss, isProfitable, feeDragPct,
+    isStopLoss, isTrailStop, isProfitable, feeDragPct,
     minProfitPct: minProfit * 100,
-    stopPct,
+    stopPct, trailPct
   };
 }
 
@@ -121,6 +136,7 @@ export default function NumNumView() {
 
   const floor     = settings.numNumFloor    || '1.5';
   const stopLoss  = settings.numNumStopLoss || '5.0';
+  const trailingStopLoss = settings.trailingStopLoss || '3.0';
   const isTankSet = !!settings.numNumFloor;
   const openPositions = settings.openPositions || {};
 
@@ -159,17 +175,18 @@ export default function NumNumView() {
             {isTankSet ? 'TANK-CALIBRATED GATE' : 'DEFAULT GATE (Awaiting Tank)'}
           </span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
           {[
             { label: 'MIN PROFIT FLOOR', value: `${parseFloat(floor).toFixed(1)}%`, color: '#818cf8', desc: 'Net gain required to approve' },
-            { label: 'STOP-LOSS TRIGGER', value: `${parseFloat(stopLoss).toFixed(1)}%`, color: '#ef4444', desc: 'Drawdown before forced exit' },
+            { label: 'HARD STOP-LOSS', value: `${parseFloat(stopLoss).toFixed(1)}%`, color: '#ef4444', desc: 'Max drawdown from entry' },
+            { label: 'TRAILING STOP', value: `${parseFloat(trailingStopLoss).toFixed(1)}%`, color: '#f97316', desc: 'Max drawdown from peak' },
             { label: 'FEE DRAG (fixed)', value: '0.80%', color: '#f59e0b', desc: '0.4% buy + 0.4% sell (Gemini)' },
             { label: 'BREAK-EVEN TARGET', value: `${(0.8 + parseFloat(floor)).toFixed(2)}%`, color: '#22c55e', desc: 'Gross gain needed above fees' },
           ].map(({ label, value, color, desc }) => (
             <div key={label} style={{ background: 'var(--bg-tertiary)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: '6px' }}>{label}</div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
-              <div style={{ fontSize: '0.60rem', color: 'var(--text-muted)', marginTop: '4px' }}>{desc}</div>
+              <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: '6px' }}>{label}</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
+              <div style={{ fontSize: '0.58rem', color: 'var(--text-muted)', marginTop: '4px' }}>{desc}</div>
             </div>
           ))}
         </div>
@@ -193,7 +210,8 @@ export default function NumNumView() {
         Object.entries(openPositions).map(([sym, pos]) => {
           const currentPrice = livePrices[sym];
           const buyPrice     = pos.buyPrice ? parseFloat(pos.buyPrice) : null;
-          const check        = currentPrice && buyPrice ? computeGateCheck(buyPrice, currentPrice, floor, stopLoss) : null;
+          const hwm          = pos.highWaterMark ? parseFloat(pos.highWaterMark) : buyPrice;
+          const check        = currentPrice && buyPrice ? computeGateCheck(buyPrice, currentPrice, floor, stopLoss, hwm, trailingStopLoss) : null;
           const amount       = parseFloat(pos.amount || 0);
           const currentValue = currentPrice ? currentPrice * amount : null;
 
@@ -226,9 +244,10 @@ export default function NumNumView() {
               </div>
 
               {/* Price row */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '14px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginBottom: '14px' }}>
                 {[
                   { label: 'ENTRY PRICE', value: buyPrice ? `$${buyPrice.toFixed(4)}` : '—', color: '#6b7280' },
+                  { label: 'HIGH-WATER MARK', value: check ? `$${check.hwm.toFixed(4)}` : '—', color: '#8b5cf6', sub: 'Peak reached' },
                   {
                     label: 'LIVE PRICE',
                     value: currentPrice ? `$${currentPrice.toFixed(4)}` : '⟳',
@@ -238,15 +257,21 @@ export default function NumNumView() {
                     sub: check ? `${check.currentPctFromBuy >= 0 ? '+' : ''}${check.currentPctFromBuy.toFixed(3)}%` : '',
                   },
                   {
+                    label: 'TRAIL TRIGGER',
+                    value: check ? `$${check.trailTriggerPrice.toFixed(4)}` : '—',
+                    color: '#f97316',
+                    sub: check ? `-${check.trailPct}% from peak` : '',
+                  },
+                  {
                     label: 'POSITION VALUE',
                     value: currentValue ? `$${currentValue.toFixed(2)}` : '—',
                     color: 'var(--text-primary)',
                   },
                 ].map(({ label, value, color, sub }) => (
                   <div key={label} style={{ background: 'var(--bg-tertiary)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.60rem', color: 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: '4px' }}>{label}</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color }}>{value}</div>
-                    {sub && <div style={{ fontSize: '0.65rem', color, marginTop: '2px' }}>{sub} from entry</div>}
+                    <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', letterSpacing: '0.08em', marginBottom: '4px' }}>{label}</div>
+                    <div style={{ fontSize: '1.0rem', fontWeight: 700, color }}>{value}</div>
+                    {sub && <div style={{ fontSize: '0.60rem', color, marginTop: '2px' }}>{sub}</div>}
                   </div>
                 ))}
               </div>

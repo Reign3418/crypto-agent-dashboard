@@ -261,30 +261,52 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
       const recentLogs = await getRecentLogs().catch(() => []);
       const liveNews = await fetchLiveNews();
 
-      // BUG 3 FIX: Hard stop-loss ALWAYS runs — regardless of autopilot toggle.
+      // BUG 3 FIX: Hard/Trailing stop-loss ALWAYS runs — regardless of autopilot toggle.
       // If you turn off autopilot, you still need capital protection.
       const { executeTrade, getPortfolioBalances } = await import('../lib/trade.js');
       let panicSold = false;
-      if (settings.openPositions && Object.keys(settings.openPositions).length > 0) {
-        for (const [sym, data] of Object.entries(settings.openPositions)) {
+      let positionsUpdated = false;
+      let openPos = settings.openPositions ? { ...settings.openPositions } : {};
+
+      if (Object.keys(openPos).length > 0) {
+        for (const [sym, data] of Object.entries(openPos)) {
           const currentData = tickerMap[sym.toUpperCase()];
           if (currentData) {
             const buyPrice = parseFloat(data.buyPrice);
             const currentPrice = parseFloat(currentData.price);
-            const dropPct = ((buyPrice - currentPrice) / buyPrice) * 100;
+            
+            // Trailing Stop-Loss tracking
+            let highWaterMark = parseFloat(data.highWaterMark || buyPrice);
+            if (currentPrice > highWaterMark) {
+              highWaterMark = currentPrice;
+              openPos[sym].highWaterMark = highWaterMark;
+              positionsUpdated = true;
+            }
 
-            if (dropPct >= 5.0) {
-              await logAction(`🚨 HARD STOP-LOSS TRIGGERED: ${sym} dropped ${dropPct.toFixed(2)}% from buy price $${buyPrice.toFixed(2)}. Bypassing AI and executing PANIC SELL!`, true);
+            const dropFromBuyPct = ((buyPrice - currentPrice) / buyPrice) * 100;
+            const dropFromPeakPct = ((highWaterMark - currentPrice) / highWaterMark) * 100;
+            
+            const hardStopLimit = parseFloat(settings.numNumStopLoss || '5.0');
+            const trailingStopLimit = parseFloat(settings.trailingStopLoss || '3.0');
+
+            const hardTriggered = dropFromBuyPct >= hardStopLimit;
+            // Only trigger trailing stop if we are in profit OR if it's the only tight stop.
+            // If trailing stop is 3% and hard stop is 5%, a 3% drop from buy will trigger the trailing stop, which is standard.
+            const trailingTriggered = dropFromPeakPct >= trailingStopLimit;
+
+            if (hardTriggered || trailingTriggered) {
+              const triggerType = trailingTriggered ? `TRAILING STOP-LOSS (${trailingStopLimit}%)` : `HARD STOP-LOSS (${hardStopLimit}%)`;
+              const dropMsg = trailingTriggered ? `dropped ${dropFromPeakPct.toFixed(2)}% from peak $${highWaterMark.toFixed(2)}` : `dropped ${dropFromBuyPct.toFixed(2)}% from buy price $${buyPrice.toFixed(2)}`;
+
+              await logAction(`🚨 ${triggerType} TRIGGERED: ${sym} ${dropMsg}. Bypassing AI and executing PANIC SELL!`, true);
               try {
                 const notionalToSell = parseFloat(data.amount) * currentPrice;
                 if (notionalToSell > 1.00) {
                   await executeTrade(sym, 'sell', notionalToSell.toFixed(2));
                 } else {
                   await logAction(`⚠️ Notional value of ${sym} too low to sell ($${notionalToSell.toFixed(2)}). Removing from active memory.`);
-                  const { updateSettings } = await import('../lib/db.js');
-                  let openPos = settings.openPositions;
                   delete openPos[sym];
-                  await updateSettings({ openPositions: openPos });
+                  positionsUpdated = true;
                 }
                 panicSold = true;
               } catch(e) {
@@ -295,8 +317,13 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
         }
       }
 
+      if (positionsUpdated) {
+        const { updateSettings } = await import('../lib/db.js');
+        await updateSettings({ openPositions: openPos });
+      }
+
       if (panicSold) {
-        return res.status(200).json({ success: true, message: 'Hard Stop-Loss triggered. AI Autopilot bypassed for this cycle.' });
+        return res.status(200).json({ success: true, message: 'Stop-Loss triggered. AI Autopilot bypassed for this cycle.' });
       }
 
       if (settings.autopilotEnabled) {

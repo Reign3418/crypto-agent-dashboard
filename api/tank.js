@@ -226,6 +226,7 @@ Return ONLY valid JSON (no markdown, no code blocks):
 
   let numNumFloor    = 1.5; // default minimum net profit %
   let numNumStopLoss = 5.0; // default stop-loss %
+  let trailingStopLoss = 3.0; // default trailing stop-loss %
   let calibrationReason = 'default (no Dozer data yet)';
 
   if (feeDragPct !== null || winRatePct !== null) {
@@ -255,15 +256,18 @@ Return ONLY valid JSON (no markdown, no code blocks):
   // Rule 3: Capital risk from Tank AI → calibrate stop-loss
   if (tankOutput.capitalRisk === 'HIGH') {
     numNumStopLoss = 3.0;
-    calibrationReason += ' | capital risk HIGH — stop-loss tightened to 3%';
+    trailingStopLoss = 2.0;
+    calibrationReason += ' | risk HIGH — stop-loss tightened to 3% / trail 2%';
   } else if (tankOutput.capitalRisk === 'LOW') {
     numNumStopLoss = 7.0;
-    calibrationReason += ' | capital risk LOW — stop-loss widened to 7%';
+    trailingStopLoss = 4.0;
+    calibrationReason += ' | risk LOW — stop-loss widened to 7% / trail 4%';
   }
 
   // Clamp to safe operating bounds
   numNumFloor    = parseFloat(Math.min(Math.max(numNumFloor, 1.0), 4.0).toFixed(1));
   numNumStopLoss = parseFloat(Math.min(Math.max(numNumStopLoss, 2.0), 10.0).toFixed(1));
+  trailingStopLoss = parseFloat(Math.min(Math.max(trailingStopLoss, 1.5), 6.0).toFixed(1));
   // ── End Calibration ──────────────────────────────────────────────────────
 
   // ── Write everything to DynamoDB ──────────────────────────────────────────
@@ -274,6 +278,7 @@ Return ONLY valid JSON (no markdown, no code blocks):
     missionSetAt: now.toISOString(),
     numNumFloor:    numNumFloor.toString(),
     numNumStopLoss: numNumStopLoss.toString(),
+    trailingStopLoss: trailingStopLoss.toString(),
   });
 
   // ── Log Tank's activity ───────────────────────────────────────────────────
@@ -285,7 +290,7 @@ Return ONLY valid JSON (no markdown, no code blocks):
   );
 
   await logAction(
-    `📊 [TANK] NumNum calibrated → floor: ${numNumFloor}% | stop-loss: ${numNumStopLoss}% | reason: ${calibrationReason}`
+    `📊 [TANK] NumNum calibrated → floor: ${numNumFloor}% | stop: ${numNumStopLoss}% | trail: ${trailingStopLoss}% | reason: ${calibrationReason}`
   );
 
   if (report.missionChanged) {
