@@ -175,7 +175,32 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
     }
   };
 
+  const saveConcentrationOverride = async () => {
+    const expiryMs = { '2h': 2, '6h': 6, '12h': 12, '24h': 24, 'none': null };
+    const hrs = expiryMs[overrideExpiry];
+    const expiresAt = hrs ? Date.now() + hrs * 60 * 60 * 1000 : null;
+    const val = { asset: overrideAsset, pct: overridePct, expiresAt, setAt: Date.now() };
+    setConcentrationOverride(val);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ concentrationOverride: val }),
+      });
+    } catch (err) { console.error('Failed to save concentration override', err); }
+  };
+
+  const clearConcentrationOverride = async () => {
+    setConcentrationOverride(null);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ concentrationOverride: null }),
+      });
+    } catch (err) { console.error('Failed to clear concentration override', err); }
+  };
+
   const fetchTriggerHistory = useCallback(async () => {
+
     try {
       const res = await fetch('/api/logs');
       if (res.ok) {
