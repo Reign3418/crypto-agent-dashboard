@@ -441,6 +441,9 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
                // NumNum will compute 0% gain → -0.8% net after fees → BLOCKED.
                // This is safer than auto-approving when cost basis is unknown.
                buyPrice: savedPos?.buyPrice ? parseFloat(savedPos.buyPrice) : (parseFloat(livePrice) || null),
+               // Tank-calibrated thresholds — updated every 12h based on Dozer's data
+               numNumFloor:    settings.numNumFloor    ?? null,
+               numNumStopLoss: settings.numNumStopLoss ?? null,
              });
              await logAction(`🔢 NumNum: ${numNumResult.reason}`);
              if (!numNumResult.approved) {

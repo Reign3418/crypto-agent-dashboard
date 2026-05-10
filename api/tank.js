@@ -111,6 +111,11 @@ ${numNumBlocks > 0
   ? `NumNum has blocked ${numNumBlocks} consecutive trade(s) on ${blockedSymbol}. The market has not reached the required exit price.`
   : 'NumNum has not blocked recent trades. System operating without friction.'}
 
+NumNum gate — current calibration (Tank sets this each cycle):
+  Floor: ${settings.numNumFloor || '1.5'}% minimum net profit
+  Stop-loss: ${settings.numNumStopLoss || '5.0'}% drawdown trigger
+  Last set by: Tank (changes each 12h cycle based on Dozer performance)
+
 Recent agent events (last 12 hours):
 ${JSON.stringify(tradeEvents.slice(0, 30), null, 2)}
 
@@ -211,12 +216,64 @@ Return ONLY valid JSON (no markdown, no code blocks):
   const existingReports = (settings.tankReports || []).slice(0, 9);
   const updatedReports = [report, ...existingReports];
 
+  // ── Deterministic NumNum Calibration ─────────────────────────────────────
+  // Pure math. Tank reads Dozer's verified performance data and sets NumNum's
+  // operating thresholds. No AI here — just rules grounded in P&L reality.
+  const feeDragRaw = dozerReport?.performance?.feeDrag;
+  const winRateRaw = dozerReport?.performance?.winRate;
+  const feeDragPct = feeDragRaw ? parseFloat(feeDragRaw) : null; // e.g. "82.5%" → 82.5
+  const winRatePct = winRateRaw ? parseFloat(winRateRaw) : null; // e.g. "33.3%" → 33.3
+
+  let numNumFloor    = 1.5; // default minimum net profit %
+  let numNumStopLoss = 5.0; // default stop-loss %
+  let calibrationReason = 'default (no Dozer data yet)';
+
+  if (feeDragPct !== null || winRatePct !== null) {
+    // Rule 1: High fee drag → raise floor (exits need more cushion above fees)
+    if (feeDragPct !== null && feeDragPct > 80) {
+      numNumFloor = 2.5;
+      calibrationReason = `fee drag ${feeDragPct.toFixed(1)}% (>80%) — floor raised to 2.5%`;
+    } else if (feeDragPct !== null && feeDragPct > 50) {
+      numNumFloor = 2.0;
+      calibrationReason = `fee drag ${feeDragPct.toFixed(1)}% (>50%) — floor raised to 2.0%`;
+    }
+
+    // Rule 2: Low win rate → floor must compensate for losers
+    if (winRatePct !== null && winRatePct < 35) {
+      numNumFloor = Math.max(numNumFloor, 2.5);
+      calibrationReason += ` | win rate ${winRatePct.toFixed(1)}% (<35%) — floor at least 2.5%`;
+    } else if (winRatePct !== null && winRatePct < 50) {
+      numNumFloor = Math.max(numNumFloor, 2.0);
+      calibrationReason += ` | win rate ${winRatePct.toFixed(1)}% (<50%) — floor at least 2.0%`;
+    }
+
+    if (feeDragPct === null && winRatePct === null) {
+      calibrationReason = 'default — insufficient Dozer data';
+    }
+  }
+
+  // Rule 3: Capital risk from Tank AI → calibrate stop-loss
+  if (tankOutput.capitalRisk === 'HIGH') {
+    numNumStopLoss = 3.0;
+    calibrationReason += ' | capital risk HIGH — stop-loss tightened to 3%';
+  } else if (tankOutput.capitalRisk === 'LOW') {
+    numNumStopLoss = 7.0;
+    calibrationReason += ' | capital risk LOW — stop-loss widened to 7%';
+  }
+
+  // Clamp to safe operating bounds
+  numNumFloor    = parseFloat(Math.min(Math.max(numNumFloor, 1.0), 4.0).toFixed(1));
+  numNumStopLoss = parseFloat(Math.min(Math.max(numNumStopLoss, 2.0), 10.0).toFixed(1));
+  // ── End Calibration ──────────────────────────────────────────────────────
+
   // ── Write everything to DynamoDB ──────────────────────────────────────────
   await updateSettings({
     tankReports: updatedReports,
     missionDirective: report.missionDirective,
     missionSetBy: 'Tank',
     missionSetAt: now.toISOString(),
+    numNumFloor:    numNumFloor.toString(),
+    numNumStopLoss: numNumStopLoss.toString(),
   });
 
   // ── Log Tank's activity ───────────────────────────────────────────────────
@@ -225,6 +282,10 @@ Return ONLY valid JSON (no markdown, no code blocks):
   await logAction(
     `🎯 [TANK ${period} REPORT] System: ${healthIcons[report.systemHealth] || ''}${report.systemHealth} | Capital Risk: ${report.capitalRisk} | ${report.briefing}`,
     true
+  );
+
+  await logAction(
+    `📊 [TANK] NumNum calibrated → floor: ${numNumFloor}% | stop-loss: ${numNumStopLoss}% | reason: ${calibrationReason}`
   );
 
   if (report.missionChanged) {
