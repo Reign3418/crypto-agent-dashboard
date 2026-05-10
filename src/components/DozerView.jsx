@@ -52,6 +52,8 @@ export default function DozerView() {
   const [report, setReport]   = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastFetch, setLastFetch] = useState(null);
+  const [forcing, setForcing] = useState(false);
+  const [forceError, setForceError] = useState(null);
 
   const fetchReport = async () => {
     try {
@@ -63,6 +65,21 @@ export default function DozerView() {
       console.error('DozerView fetch error:', e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const forceRun = async () => {
+    setForcing(true);
+    setForceError(null);
+    try {
+      const res = await fetch('/api/dozer', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Unknown error');
+      await fetchReport();
+    } catch (e) {
+      setForceError(e.message);
+    } finally {
+      setForcing(false);
     }
   };
 
@@ -84,6 +101,10 @@ export default function DozerView() {
       <div style={{ fontSize: '2rem' }}>🏗️</div>
       <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>DOZER — Standing By</div>
       <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>First accounting report generates in the next 15-minute cron window.</div>
+      {forceError && <div style={{ fontSize: '0.8rem', color: 'var(--accent-red)', maxWidth: '400px', textAlign: 'center' }}>Error: {forceError}</div>}
+      <button onClick={forceRun} disabled={forcing} style={{ marginTop: '8px', padding: '10px 24px', borderRadius: '8px', background: 'rgba(74,158,255,0.15)', border: '1px solid var(--accent-blue)', color: 'var(--accent-blue)', fontWeight: 700, cursor: forcing ? 'not-allowed' : 'pointer', fontSize: '0.85rem', opacity: forcing ? 0.6 : 1 }}>
+        {forcing ? '⏳ Running Dozer...' : '▶ Force Run Dozer Now'}
+      </button>
     </div>
   );
 
@@ -111,10 +132,18 @@ export default function DozerView() {
             No AI · Pure deterministic math · {report.tradesAnalyzed?.toLocaleString()} log entries scanned · Last run {timeAgo(report.timestamp)}
           </div>
         </div>
-        <button
-          onClick={fetchReport}
-          style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer', fontSize: '0.78rem' }}
-        >↻ Refresh</button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={forceRun}
+            disabled={forcing}
+            style={{ background: forcing ? 'var(--bg-tertiary)' : 'rgba(74,158,255,0.15)', border: '1px solid var(--accent-blue)', color: 'var(--accent-blue)', borderRadius: '8px', padding: '6px 12px', cursor: forcing ? 'not-allowed' : 'pointer', fontSize: '0.78rem', fontWeight: 600, opacity: forcing ? 0.6 : 1 }}
+          >{forcing ? '⏳ Running...' : '▶ Force Run'}</button>
+          <button
+            onClick={fetchReport}
+            style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-muted)', borderRadius: '8px', padding: '6px 12px', cursor: 'pointer', fontSize: '0.78rem' }}
+          >↻ Refresh</button>
+        </div>
+        {forceError && <div style={{ fontSize: '0.75rem', color: 'var(--accent-red)', marginTop: '6px' }}>Error: {forceError}</div>}
       </div>
 
       {/* ── Capital Balance ──────────────────────────────────────────────────── */}

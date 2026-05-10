@@ -60,10 +60,12 @@ export default async function handler(req, res) {
 
     // ── STEP 2: DOZER — Accounting (every 15 min) ────────────────────────────
     if (now - timestamps.lastMissionTime >= FIFTEEN_MIN) {
+      let step2ok = false;
       try {
         const { runDozer } = await import('./dozer.js');
         await runDozer();
         results.dozer = 'reconciled';
+        step2ok = true;
       } catch (e) {
         await logAction(`⚠️ Dozer error: ${e.message}`);
       }
@@ -79,7 +81,11 @@ export default async function handler(req, res) {
         await logAction(`⚠️ Mission assessment error: ${e.message}`);
       }
 
-      await updateSettings({ lastMissionTime: now.toString() });
+      // Only advance the timer if Dozer actually succeeded.
+      // If it failed, the next cron tick will retry immediately.
+      if (step2ok) {
+        await updateSettings({ lastMissionTime: now.toString() });
+      }
     }
 
     // ── STEP 3: Cognitive Rollup (every 60 min) ───────────────────────────────
