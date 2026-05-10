@@ -35,6 +35,10 @@ export default async function handler(req, res) {
       if (symbol === 'USD' || symbol === 'GUSD') continue;
       if (data.notional < 1.00) continue;
 
+      // Safely parse — getPortfolioBalances may return amount as string or number
+      const amount = parseFloat(data.amount);
+      if (!amount || amount <= 0) continue;
+
       // Fetch current market price
       let currentPrice = null;
       try {
@@ -51,23 +55,23 @@ export default async function handler(req, res) {
       }
 
       const wasTracked = !!existingPositions[symbol];
-      const costBasisUsd = parseFloat((currentPrice * data.amount).toFixed(4));
+      const costBasisUsd = parseFloat((currentPrice * amount).toFixed(4));
 
       // Always write from live truth — corrects corrupted records too
       newPositions[symbol] = {
         buyPrice:     currentPrice,
-        amount:       data.amount.toString(),
+        amount:       amount.toString(),
         costBasisUsd: costBasisUsd,
         timestamp:    Date.now(),
         reconciled:   true,
       };
 
       if (wasTracked) {
-        corrected.push({ symbol, amount: data.amount, buyPrice: currentPrice, costBasisUsd, notional: data.notional });
-        await logAction(`🔄 RECONCILE: Corrected position ${symbol} — ${data.amount.toFixed(6)} units @ $${currentPrice.toFixed(4)} (cost basis reset to $${costBasisUsd.toFixed(2)}).`, true);
+        corrected.push({ symbol, amount, buyPrice: currentPrice, costBasisUsd, notional: data.notional });
+        await logAction(`🔄 RECONCILE: Corrected position ${symbol} — ${amount.toFixed(6)} units @ $${currentPrice.toFixed(4)} (cost basis reset to $${costBasisUsd.toFixed(2)}).`, true);
       } else {
-        added.push({ symbol, amount: data.amount, buyPrice: currentPrice, costBasisUsd, notional: data.notional });
-        await logAction(`🔄 RECONCILE: Added position ${symbol} — ${data.amount.toFixed(6)} units @ $${currentPrice.toFixed(4)}.`, true);
+        added.push({ symbol, amount, buyPrice: currentPrice, costBasisUsd, notional: data.notional });
+        await logAction(`🔄 RECONCILE: Added position ${symbol} — ${amount.toFixed(6)} units @ $${currentPrice.toFixed(4)}.`, true);
       }
     }
 
