@@ -39,13 +39,14 @@ const TABLE = process.env.DYNAMODB_TABLE_NAME || 'CryptoAgentLogs';
 async function scanAllTradeLogs(activeEraEpoch = '0') {
   let allLogs = [];
   let lastKey;
-  // sk is stored as a Number in DynamoDB — must pass a Number, not a string.
-  const epochNum = parseInt(activeEraEpoch, 10) || 0;
+  // sk is stored as a String in DynamoDB (written as timestamp.toString()).
+  // Must pass a String here — DynamoDB will reject a Number against a String key.
+  const epochStr = String(activeEraEpoch || '0');
   do {
     const res = await ddb.send(new QueryCommand({
       TableName: TABLE,
       KeyConditionExpression: 'pk = :pk AND sk >= :epoch',
-      ExpressionAttributeValues: { ':pk': 'AGENT_LOG', ':epoch': epochNum },
+      ExpressionAttributeValues: { ':pk': 'AGENT_LOG', ':epoch': epochStr },
       ExclusiveStartKey: lastKey,
     }));
     allLogs = allLogs.concat(res.Items || []);
