@@ -74,6 +74,10 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   const [reconcileResult, setReconcileResult] = useState('');
   const [activePersona, setActivePersona] = useState('Bastion');
   const [activeEraName, setActiveEraName] = useState('Aegis');
+  const [concentrationOverride, setConcentrationOverride] = useState(null);
+  const [overridePct,    setOverridePct]    = useState(75);
+  const [overrideAsset,  setOverrideAsset]  = useState('LINK');
+  const [overrideExpiry, setOverrideExpiry] = useState('6h');
 
   const fetchStrategies = useCallback(async () => {
     try {
@@ -94,6 +98,13 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
       setMacroLedgers(dataSettings.macroLedgers || []);
       setActivePersona(dataSettings.activePersona || 'Bastion');
       setActiveEraName(dataSettings.activeEraName || 'Aegis');
+      const co = dataSettings.concentrationOverride || null;
+      // Auto-expire if past expiry time
+      if (co && co.expiresAt && Date.now() > co.expiresAt) {
+        setConcentrationOverride(null);
+      } else {
+        setConcentrationOverride(co);
+      }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, []);
@@ -459,7 +470,84 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
           </div>
         </section>
 
-        {/* Col 2: Stop-Loss Sync + Audit */}
+        {/* ── Concentration Override ── */}
+        <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>🎚️ Concentration Override</h3>
+            {concentrationOverride ? (
+              <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px', borderRadius: '10px', background: 'rgba(239,68,68,0.15)', color: 'var(--accent-red)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                ⚡ ACTIVE
+              </span>
+            ) : (
+              <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px', borderRadius: '10px', background: 'rgba(34,197,94,0.1)', color: 'var(--accent-green)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                🎯 Tank &amp; Dozer managing
+              </span>
+            )}
+          </div>
+
+          {concentrationOverride ? (
+            <div style={{ padding: '12px', background: 'rgba(239,68,68,0.08)', borderRadius: '8px', border: '1px solid rgba(239,68,68,0.25)' }}>
+              <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '4px' }}>
+                {concentrationOverride.asset} — up to <span style={{ color: 'var(--accent-red)' }}>{concentrationOverride.pct}%</span>
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                {concentrationOverride.expiresAt
+                  ? `Expires ${new Date(concentrationOverride.expiresAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                  : 'No expiry set — clear manually'}
+              </div>
+              <button onClick={clearConcentrationOverride} style={{ width: '100%', padding: '8px', borderRadius: '8px', background: 'rgba(239,68,68,0.15)', border: '1px solid var(--accent-red)', color: 'var(--accent-red)', fontWeight: 600, cursor: 'pointer', fontSize: '0.82rem' }}>
+                ✕ Clear Override — Let Tank/Dozer resume control
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                Tank &amp; Dozer set concentration limits based on your capital. Use this only when a coin is moving hard and you want CIPHER to swing heavy.
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={labelStyle}>Asset</label>
+                  <select value={overrideAsset} onChange={e => setOverrideAsset(e.target.value)} style={inputStyle}>
+                    {['BTC','ETH','SOL','XRP','LINK','DOGE','LTC','AVAX','BCH'].map(a => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Expires In</label>
+                  <select value={overrideExpiry} onChange={e => setOverrideExpiry(e.target.value)} style={inputStyle}>
+                    <option value="2h">2 hours</option>
+                    <option value="6h">6 hours</option>
+                    <option value="12h">12 hours</option>
+                    <option value="24h">24 hours</option>
+                    <option value="none">No expiry</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <label style={{ ...labelStyle, marginBottom: 0 }}>Max Concentration</label>
+                  <span style={{ fontWeight: 700, fontSize: '1.1rem', color: overridePct >= 80 ? 'var(--accent-red)' : overridePct >= 65 ? '#f59e0b' : 'var(--accent-green)', fontFamily: 'monospace' }}>{overridePct}%</span>
+                </div>
+                <input
+                  type="range" min={50} max={95} step={5}
+                  value={overridePct}
+                  onChange={e => setOverridePct(parseInt(e.target.value))}
+                  style={{ width: '100%', accentColor: overridePct >= 80 ? 'var(--accent-red)' : overridePct >= 65 ? '#f59e0b' : 'var(--accent-green)' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  <span>50% — Balanced</span>
+                  <span>95% — Full Swing</span>
+                </div>
+              </div>
+
+              <button onClick={saveConcentrationOverride} style={{ width: '100%', padding: '10px', borderRadius: '8px', background: 'rgba(239,68,68,0.15)', border: '1px solid var(--accent-red)', color: 'var(--accent-red)', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem' }}>
+                ⚡ Set Override for {overrideAsset}
+              </button>
+            </div>
+          )}
+        </section>
+
         <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>🛡️ Risk Controls</h3>
 
