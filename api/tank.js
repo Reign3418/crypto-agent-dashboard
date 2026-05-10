@@ -151,6 +151,7 @@ AGENT HEALTH ASSESSMENT GUIDE:
 MISSION DIRECTIVE RULES:
 - You own the mission directive. The human does NOT set it anymore. You do.
 - Your ONLY capital rule: PROTECT CAPITAL. Never set a goal that requires gambling.
+- CRITICAL CAPITAL RULE: You have $${(dozerReport?.capitalBalance?.liquidUSD || 0).toFixed(2)} USD liquid. Do NOT set a mission that requires deploying more capital than this amount. If liquid < $15, your mission MUST be about managing EXISTING open positions (monitoring exits, protecting the LINK position, etc). You CANNOT instruct CIPHER to wait for a capital injection — that is not your decision to make.
 - Base the goal on DEMONSTRATED PACE. If the system has made X trades in Y days with Z average net, set a goal achievable at that pace with moderate ambition (pace × 1.5 is reasonable).
 - The goal must be specific enough for CIPHER to evaluate completion. Good: "Achieve 3 profitable closed trades with net positive P&L over 7 days." Bad: "Make money."
 - If the current mission has never been completed and has been running for >3 days, you MUST set a new, more achievable mission.
@@ -211,6 +212,35 @@ Return ONLY valid JSON (no markdown, no code blocks):
       regimeDetected: 'ranging',
     };
   }
+
+  // ── DETERMINISTIC CAPITAL-CONSTRAINT OVERRIDE ────────────────────────────
+  // If liquid capital is below the minimum trade size, Tank's AI cannot set
+  // a mission requiring new capital deployment. Override it here — no AI
+  // hallucination can override a $1.64 account balance.
+  const liquidUSD2 = dozerReport?.capitalBalance?.liquidUSD || 0;
+  const hasOpenPositions = Object.keys(settings.openPositions || {}).length > 0;
+
+  if (liquidUSD2 < 15 && hasOpenPositions) {
+    const positionSummary = Object.entries(settings.openPositions || {})
+      .map(([sym, pos]) => {
+        const pct = pos.buyPrice > 0
+          ? (((pos.currentPrice || pos.buyPrice) - pos.buyPrice) / pos.buyPrice * 100).toFixed(2)
+          : '0.00';
+        return `${sym} (${pct}% from cost basis)`;
+      }).join(', ');
+
+    const forcedMission = `Capital-constrained mode ($${liquidUSD2.toFixed(2)} liquid). Protect open positions and exit when NumNum approves a profitable sell. Do NOT wait for capital injection. Current positions: ${positionSummary}. CIPHER should actively propose sells when prices reach NumNum targets.`;
+
+    if (tankOutput.missionDirective !== forcedMission) {
+      await logAction(
+        `⚠️ [TANK] Capital-constraint override: liquid $${liquidUSD2.toFixed(2)} < min $${minTradeSize}. Forcing mission to protect-and-exit mode. Previous AI mission: "${tankOutput.missionDirective?.substring(0, 80)}..."`,
+        true
+      );
+      tankOutput.missionDirective = forcedMission;
+      tankOutput.missionChanged = true;
+    }
+  }
+  // ── END OVERRIDE ─────────────────────────────────────────────────────────
 
   // ── Build the report object ───────────────────────────────────────────────
   const nextRunMs = 6 * 60 * 60 * 1000; // 6h cadence
