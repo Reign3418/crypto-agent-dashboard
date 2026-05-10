@@ -30,6 +30,16 @@ function App() {
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [isHalted, setIsHalted] = useState(false);
   const [strategyAlerts, setStrategyAlerts] = useState(0);
+  const [autopilotEnabled, setAutopilotEnabled] = useState(true); // optimistic default
+
+  // Poll autopilot state every 20s so banner reflects reality across all tabs
+  useEffect(() => {
+    const check = () =>
+      fetch('/api/settings').then(r => r.json()).then(d => setAutopilotEnabled(d.autopilotEnabled ?? true)).catch(() => {});
+    check();
+    const iv = setInterval(check, 20000);
+    return () => clearInterval(iv);
+  }, []);
 
   // Sync tab ↔ URL hash so each screen can be bookmarked
   useEffect(() => {
@@ -164,6 +174,51 @@ function App() {
           </button>
         </div>
       </header>
+
+      {/* ── Warning Banner — Emergency Stop or Autopilot Off ──────────────── */}
+      {(isHalted || !autopilotEnabled) && (
+        <div style={{
+          flexShrink: 0,
+          background: isHalted
+            ? 'linear-gradient(90deg, #7f1d1d, #991b1b, #7f1d1d)'
+            : 'linear-gradient(90deg, #78350f, #92400e, #78350f)',
+          backgroundSize: '200% 100%',
+          animation: 'bannerPulse 2s ease-in-out infinite',
+          borderBottom: `2px solid ${isHalted ? '#ef4444' : '#f59e0b'}`,
+          padding: '10px 28px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '1.4rem', animation: 'iconFlash 1s step-end infinite' }}>
+              {isHalted ? '🛑' : '⚠️'}
+            </span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#fff', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                {isHalted ? 'EMERGENCY STOP ENGAGED — ALL TRADING HALTED' : 'AUTOPILOT OFFLINE — CIPHER IS NOT TRADING'}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.75)', marginTop: '2px' }}>
+                {isHalted
+                  ? 'No agent can execute trades. Refresh the page and re-enable autopilot to resume operations.'
+                  : 'The system is standing by. Turn Autopilot ON in the Terminal tab to resume autonomous trading.'}
+              </div>
+            </div>
+          </div>
+          <div style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.6)', whiteSpace: 'nowrap' }}>
+            {isHalted ? 'HARD HALT' : 'SOFT HALT'}
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes bannerPulse {
+          0%, 100% { background-position: 0% 50%; opacity: 1; }
+          50% { background-position: 100% 50%; opacity: 0.88; }
+        }
+        @keyframes iconFlash {
+          0%, 49% { opacity: 1; }
+          50%, 100% { opacity: 0; }
+        }
+      `}</style>
 
       {/* ── Tab Content (fills remaining viewport exactly) ────── */}
       <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

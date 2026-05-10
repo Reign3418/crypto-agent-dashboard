@@ -437,7 +437,10 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
                side: apDecision.decision,
                usdAmount: apDecision.amount,
                currentPrice: parseFloat(livePrice),
-               buyPrice: savedPos?.buyPrice ? parseFloat(savedPos.buyPrice) : null,
+               // If no stored cost basis, use live price as break-even fallback.
+               // NumNum will compute 0% gain → -0.8% net after fees → BLOCKED.
+               // This is safer than auto-approving when cost basis is unknown.
+               buyPrice: savedPos?.buyPrice ? parseFloat(savedPos.buyPrice) : (parseFloat(livePrice) || null),
              });
              await logAction(`🔢 NumNum: ${numNumResult.reason}`);
              if (!numNumResult.approved) {

@@ -15,7 +15,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const logs = await getRecentLogs();
+    const limit = Math.min(parseInt(req.query.limit) || 200, 500);
+    const logs = await getRecentLogs(limit);
     return res.status(200).json(logs);
   } catch (error) {
     console.error('API Logs Error:', error);
