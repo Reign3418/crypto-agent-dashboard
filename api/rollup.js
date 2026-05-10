@@ -26,15 +26,9 @@ export default async function handler(req, res) {
       
       let totalUsd = 0;
       try {
-        const host = req.headers.host || 'localhost:3000';
-        const protocol = host.includes('localhost') ? 'http' : 'https';
-        const portRes = await fetch(`${protocol}://${host}/api/portfolio`, { method: 'POST' });
-        if (portRes.ok) {
-          const json = await portRes.json();
-          if (Array.isArray(json)) {
-              totalUsd = json.reduce((sum, item) => sum + parseFloat(item.amountNotional || 0), 0);
-          }
-        }
+        const { getPortfolioBalances } = await import('../lib/trade.js');
+        const activeBalances = await getPortfolioBalances();
+        totalUsd = Object.values(activeBalances).reduce((sum, item) => sum + (item.notional || 0), 0);
       } catch (e) {
         console.warn('Failed to fetch portfolio for mission tracker:', e.message);
       }
@@ -100,15 +94,9 @@ Speak in the first-person as the AI. Do not use markdown fences. Keep it to 1 co
 
       let totalUsd = 0;
       try {
-        const host = req.headers.host || 'localhost:3000';
-        const protocol = host.includes('localhost') ? 'http' : 'https';
-        const portRes = await fetch(`${protocol}://${host}/api/portfolio`, { method: 'POST' });
-        if (portRes.ok) {
-          const json = await portRes.json();
-          if (Array.isArray(json)) {
-              totalUsd = json.reduce((sum, item) => sum + parseFloat(item.amountNotional || 0), 0);
-          }
-        }
+        const { getPortfolioBalances } = await import('../lib/trade.js');
+        const activeBalances = await getPortfolioBalances();
+        totalUsd = Object.values(activeBalances).reduce((sum, item) => sum + (item.notional || 0), 0);
       } catch (e) {
         console.warn('Failed to fetch portfolio for 60m rollup:', e.message);
       }
