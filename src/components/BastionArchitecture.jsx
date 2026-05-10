@@ -51,12 +51,12 @@ const TIP = {
   },
 };
 
-function Tooltip({ id, children }) {
+function Tooltip({ id, children, wrapperStyle = {} }) {
   const [show, setShow] = useState(false);
   const tip = TIP[id] || {};
   return (
     <div
-      style={{ position: 'relative', display: 'contents' }}
+      style={{ position: 'relative', ...wrapperStyle }}
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
     >
@@ -75,12 +75,6 @@ function Tooltip({ id, children }) {
           </div>
           <div style={{ fontSize: '0.65rem', color: '#94a3b8', lineHeight: 1.6 }}>
             {tip.body}
-          </div>
-          <div style={{
-            position: 'absolute', bottom: '-6px', left: '50%', transform: 'translateX(-50%)',
-            width: '12px', height: '6px', overflow: 'hidden',
-          }}>
-            <div style={{ width: '8px', height: '8px', background: '#334155', transform: 'rotate(45deg)', margin: '0 auto', marginTop: '-4px' }} />
           </div>
         </div>
       )}
@@ -151,9 +145,9 @@ function Agent({ id, icon, name, role, cadence, color, health, output, note }) {
 
 function Gate({ id, icon, name, type, desc, color }) {
   return (
-    <Tooltip id={id}>
+    <Tooltip id={id} wrapperStyle={{ flex: 1 }}>
       <div style={{
-        flex: 1, background: `linear-gradient(160deg,#0b1120,${color}0e)`,
+        background: `linear-gradient(160deg,#0b1120,${color}0e)`,
         border: `1px solid ${color}44`, borderRadius: '8px',
         padding: '12px 8px', textAlign: 'center', cursor: 'help',
         transition: 'border-color 0.2s, transform 0.15s',
