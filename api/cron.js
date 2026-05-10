@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const MAX_RUN_MS = 50000; // bail before Vercel's 60s function limit
+  const MAX_RUN_MS = 250000; // 250s — cron has maxDuration:300 in vercel.json; 50s was starving Tank/NULL
   const startTime = Date.now();
   const runId = new Date().toISOString();
   const results = {};

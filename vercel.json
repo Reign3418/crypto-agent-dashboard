@@ -3,11 +3,21 @@
     {
       "path": "/api/cron",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/tank-cron",
+      "schedule": "0 */12 * * *"
     }
   ],
   "functions": {
     "api/cron.js": {
       "maxDuration": 300
+    },
+    "api/tank-cron.js": {
+      "maxDuration": 120
+    },
+    "api/tank.js": {
+      "maxDuration": 120
     },
     "api/scout.js": {
       "maxDuration": 300
