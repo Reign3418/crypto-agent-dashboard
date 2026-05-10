@@ -34,16 +34,22 @@ export default async function handler(req, res) {
       }
 
       const recentLogs = logs.slice(0, 15);
-      const prompt = `You are CIPHER, an elite autonomous fund manager. 
+
+      // ── Deterministic fee total — do NOT ask the AI to sum this ──
+      const feeLogPattern = /Fee:\s*\$([\d.]+)/gi;
+      let missionFeeTotal = 0;
+      recentLogs.forEach(l => { const m = feeLogPattern.exec(l.action || ''); if (m) missionFeeTotal += parseFloat(m[1]); feeLogPattern.lastIndex = 0; });
+
+      const prompt = `You are CIPHER, an elite autonomous fund manager.
 Your current MISSION DIRECTIVE is: "${settings.missionDirective}"
 Your current PORTFOLIO VALUE is: $${totalUsd.toFixed(2)}
+Fees paid in recent activity (pre-calculated, do not recompute): $${missionFeeTotal.toFixed(4)}
 
 Recent Activity Logs:
 ${JSON.stringify(recentLogs, null, 2)}
 
-Provide a concise 2-sentence tactical progress report on the Mission Directive. Are we on track or falling behind? 
-CRITICAL ALGORITHM UPDATE: You must analyze the recent logs for transaction fees ("Fee: X"). Compile a trend of how much aggressive trading is costing us. If transaction fees are eating up our profits, you MUST flag this in your report and advise halting hyper-active, low-dollar trades immediately.
-Speak in the first-person as the AI (e.g. "I am trailing the goal because transaction fees are bleeding the portfolio..."). Do not use markdown fences.`;
+Provide a concise 2-sentence tactical progress report on the Mission Directive. Are we on track or falling behind? Fee data is pre-calculated above — use it directly, do not recalculate from logs.
+Speak in the first-person as the AI. Do not use markdown fences.`;
 
       const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
       const assessmentText = aiRes.text.trim();
@@ -66,14 +72,18 @@ Speak in the first-person as the AI (e.g. "I am trailing the goal because transa
 
       if (relevantRollups.length === 0) return res.status(200).json({ message: 'No hourly rollups to compile into a macro ledger.' });
 
-      const prompt = `You are CIPHER, an elite autonomous fund manager. 
+      const prompt = `You are CIPHER, an elite autonomous fund manager.
 Below are your hourly cognitive rollups from the last ${hoursToLookBack} hours.
 
 HOURLY ROLLUPS:
 ${JSON.stringify(relevantRollups.map(r => r.text), null, 2)}
 
-Synthesize these hourly reports into a single, high-level "Macro Trend Ledger". 
-Identify overarching market shifts over the last ${hoursToLookBack} hours. What overarching algorithmic strategies failed or succeeded? How much did transaction fees impact the overall portfolio over this long period? State clearly how you will permanently adjust your algorithm to learn from yesterday's trends.
+Dozer's verified fee drag for this period: ${settings.dozerReport?.performance?.feeDrag || 'not yet available'}.
+Dozer's verified win rate: ${settings.dozerReport?.performance?.winRate || 'not yet available'}.
+
+Synthesize these hourly reports into a single, high-level "Macro Trend Ledger".
+Identify overarching market shifts. What strategies failed or succeeded? Reference the Dozer-verified fee drag above — do NOT recalculate fees yourself.
+State clearly how you will permanently adjust strategy to learn from these trends.
 Speak in the first-person as the AI. Do not use markdown fences. Keep it to 1 concise paragraph.`;
 
       const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-pro', contents: prompt });
@@ -101,18 +111,25 @@ Speak in the first-person as the AI. Do not use markdown fences. Keep it to 1 co
         console.warn('Failed to fetch portfolio for 60m rollup:', e.message);
       }
 
-      const prompt = `You are CIPHER, an elite autonomous fund manager. 
-Your current PORTFOLIO VALUE is: $${totalUsd.toFixed(2)}
+      // ── Deterministic fee total — do NOT ask the AI to sum this ──
+      const feePattern = /Fee:\s*\$([\d.]+)/gi;
+      let hourlyFeeTotal = 0;
+      lastHourLogs.forEach(l => { const m = feePattern.exec(l.action || ''); if (m) hourlyFeeTotal += parseFloat(m[1]); feePattern.lastIndex = 0; });
 
-Below are your activity logs from the last hour of trading, scanning, and news parsing.
+      const prompt = `You are CIPHER, an elite autonomous fund manager.
+Your current PORTFOLIO VALUE is: $${totalUsd.toFixed(2)}
+Fees paid this hour (pre-calculated by fee parser, do not recompute): $${hourlyFeeTotal.toFixed(4)}
+Dozer's verified fee drag: ${settings.dozerReport?.performance?.feeDrag || 'not yet available'}
+
+Below are your activity logs from the last hour.
 
 LOGS:
 ${JSON.stringify(lastHourLogs, null, 2)}
 
-Analyze these logs and write a single, concise 1-paragraph "Cognitive Rollup". 
-Explain how the market shifted over the last hour, what you learned from your successes or failures, and how you are adapting your algorithmic strategy right now. 
-CRITICAL ALGORITHM UPDATE: You must calculate the total transaction fees paid in the last hour from the logs. If aggressive trades and fees are bleeding the portfolio, strictly advise altering the algorithm to increase order sizes or reduce frequency.
-Speak in the first-person as the AI (e.g. "I noticed BTC struggling..."). Do not use markdown fences.`;
+Analyze these logs and write a single, concise 1-paragraph "Cognitive Rollup".
+Explain how the market shifted over the last hour, what you learned from your successes or failures, and how you are adapting your strategy right now.
+The hourly fee total is pre-calculated above — reference it directly. Do NOT recalculate fees from the raw logs.
+Speak in the first-person as the AI. Do not use markdown fences.`;
 
       const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
       const rollupText = aiRes.text.trim();
@@ -134,30 +151,47 @@ Speak in the first-person as the AI (e.g. "I noticed BTC struggling..."). Do not
       return res.status(200).json({ success: true, rollup: newRollup });
     }
 
-    // ---- DEEP DIVE DRAIN ANALYSIS ----
     if (task === 'analyze') {
       const { getDeepDiveAnalysis } = await import('../lib/db.js');
       const data = await getDeepDiveAnalysis();
-      
+
+      // ── Load Dozer's pre-computed FIFO accounting — this is ground truth ──
+      // The AI must NEVER recalculate P&L from raw coinStats.
+      // Dozer already did FIFO matching with deterministic math.
+      const dozerReport = settings.dozerReport || null;
+      const dozerSummary = dozerReport ? `
+DOZER VERIFIED ACCOUNTING (FIFO-matched, deterministic — do NOT recalculate):
+  Net realized P&L (closed trades only): $${dozerReport.capitalBalance?.netRealizedPL?.toFixed(4) ?? '?'}
+  Unrealized P&L (open positions):       $${dozerReport.capitalBalance?.unrealizedPL?.toFixed(4) ?? '?'}
+  Net position (real scorecard):         $${dozerReport.capitalBalance?.netPosition?.toFixed(4) ?? '?'}
+  Liquid USD available:                  $${dozerReport.capitalBalance?.liquidUSD?.toFixed(2) ?? '?'}
+  Win rate:                              ${dozerReport.performance?.winRate ?? '?'}
+  Fee drag (fees as % of gross P&L):     ${dozerReport.performance?.feeDrag ?? '?'}
+  Avg net per trade:                     $${dozerReport.performance?.avgNetPerTrade?.toFixed(4) ?? '?'}
+  Closed trade pairs:                    ${dozerReport.performance?.totalClosedTrades ?? 0}
+  Current streak:                        ${dozerReport.performance?.currentStreak?.count ?? 0}-${dozerReport.performance?.currentStreak?.type ?? 'none'}
+` : 'Dozer has not run yet — do not attempt to calculate P&L from raw coinStats.';
+
       const prompt = `You are BASTION, the capital-preservation AI for this fund. Your supervisor has requested a Deep Dive Audit of all historical trading data.
 
 Here is the raw data spanning ALL logs and ALL trades:
 ${JSON.stringify(data, null, 2)}
 
-CRITICAL ACCOUNTING RULES — READ BEFORE ANALYZING:
-1. The gap between buyVolumeUsd and sellVolumeUsd is NOT a realized loss. If openPositions is non-empty, that gap is capital currently held in those assets — deployed, not lost. Do NOT call it a drain.
-2. True realized P&L on a coin = sellVol minus the proportional cost of the units actually sold. Not all bought units may have been sold yet.
-3. The unrealizedPlUsd field in openPositions is the correct live P&L for held assets. Use this number to assess open performance — do not recalculate from buy/sell volumes.
-4. NumNum, a dedicated fee-math module, is ALREADY enforcing a 1.5% minimum net profit threshold on every trade. Do NOT recommend implementing a fee filter — it is operational.
-5. A hard 5% stop-loss is ALREADY active on all positions. Do NOT recommend implementing stop-losses — they are operational.
+${dozerSummary}
 
-CRITICAL CONTEXT: If totalTrades is 0, DO NOT PANIC. This means the system is executing its Capital Preservation mandate by holding USD during choppy markets. Praise this discipline.
+CRITICAL ACCOUNTING RULES — STRICTLY ENFORCED:
+1. USE DOZER'S NUMBERS ONLY. Do NOT attempt to calculate P&L, fees, or win rates from coinStats or raw volumes. Dozer already did this with deterministic FIFO math. If you recalculate and get a different number, you are wrong — Dozer is right.
+2. The gap between buyVolumeUsd and sellVolumeUsd is NOT realized P&L. Do not subtract them and call it profit or loss.
+3. If Dozer's report is unavailable, state that clearly. Do not estimate.
+4. NumNum already enforces a minimum net profit threshold on every trade. Do NOT recommend implementing fee filters — they are operational.
+5. A hard stop-loss is already active on all positions. Do NOT recommend stop-losses — they are operational.
+6. If totalTrades is 0, the system is executing its Capital Preservation mandate. Praise this discipline.
 
 Provide a clear 2-paragraph analysis:
-- Paragraph 1: Where does capital actually stand? Calculate TRUE realized P&L on closed trades only. Use unrealizedPlUsd for open positions. Be mathematically precise.
+- Paragraph 1: Report the fund's actual financial position using DOZER'S pre-computed numbers above. State net realized P&L, unrealized P&L, fee drag percentage, and win rate. Attribute figures to Dozer explicitly.
 - Paragraph 2: What is working, what is not, and what ONE strategic change would have the highest impact — given that fee management and stop-losses are already handled by dedicated modules.
 
-Speak as the AI analyzing its own performance. Be honest but accurate.`;
+Speak as the AI analyzing its own performance. Be honest but accurate. Do not recalculate what Dozer already computed.`;
 
       const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
       const analysisText = aiRes.text.trim();
