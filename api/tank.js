@@ -331,9 +331,14 @@ Return ONLY valid JSON (no markdown, no code blocks):
   else if (tankOutput.capitalRisk === 'LOW') maxTradePct = 0.20;
   let maxTradeSize = liquidUSD > 0 ? liquidUSD * maxTradePct : 50;
 
-  // Clamp sizes to safe bounds
+  // Clamp sizes to safe bounds — maxTradeSize must always be >= minTradeSize.
+  // Bug: at ~$51 liquid, Math.max(pct, 25) then Math.min(result, liquid*0.25) creates
+  // max < min. Fix: ensure max >= min, then cap at 35% of liquid.
   minTradeSize = parseFloat(Math.min(Math.max(minTradeSize, 15), 75).toFixed(0));
-  maxTradeSize = parseFloat(Math.min(Math.max(maxTradeSize, 25), liquidUSD * 0.25 || 200).toFixed(0));
+  maxTradeSize = parseFloat(Math.min(
+    Math.max(liquidUSD * maxTradePct, minTradeSize),  // floor: never below minTradeSize
+    Math.max(liquidUSD * 0.35, minTradeSize)           // cap: 35% of liquid (or min if tiny)
+  ).toFixed(0));
 
   // ── NEW: Capital Efficiency Mode — fees eating > 30% of gross PnL ───────────────
   const capitalEfficiencyMode = feeDragPct !== null && feeDragPct > 30;
