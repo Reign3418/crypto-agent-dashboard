@@ -281,3 +281,4 @@ If Tank hasn't run recently and you want NULL to have context for the next cycle
 - Any sell with no matching buy shows up there — these are excluded from P&L by design
 - The reconciliation note at the bottom of the Dozer panel explains what Dozer found
 
+

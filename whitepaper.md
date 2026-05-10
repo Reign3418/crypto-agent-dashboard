@@ -1,4 +1,4 @@
-# CIPHER
+# CIPHER � Continuously Intelligent Portfolio Hunter & Execution Rings
 ## Autonomous Multi-Agent Crypto Trading System
 ### System Whitepaper — v2.0
 
@@ -134,7 +134,7 @@ Trade executes → cost basis written → Dozer reconciles on next 15min tick
 
 ---
 
-### CIPHER — Tactical Execution Engine
+### CIPHER � Continuously Intelligent Portfolio Hunter & Execution Rings — Tactical Execution Engine
 **Identity:** Elite autonomous fund manager. Reads everything, executes with precision.
 
 **Context on every cycle:**
@@ -300,4 +300,5 @@ The system does not seek spectacular gains at the cost of survival. It holds its
 
 *CIPHER Whitepaper v2.0 — CIPHER Era*
 *Architecture designed and built in collaboration with Antigravity AI*
+
 

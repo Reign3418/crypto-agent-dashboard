@@ -225,7 +225,7 @@ export default function CipherArchitecture() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
             <div>
               <div style={{ fontSize: '1.05rem', fontWeight: 900, letterSpacing: '0.15em', color: '#e2e8f0' }}>
-                ◈ CIPHER — MULTI-AGENT AUTONOMOUS TRADING
+                ◈ CIPHER — CONTINUOUSLY INTELLIGENT PORTFOLIO HUNTER & EXECUTION RINGS
               </div>
               <div style={{ fontSize: '0.63rem', color: '#475569', marginTop: '4px', letterSpacing: '0.06em' }}>
                 COMBAT RING · BACK OFFICE RING · FOUR-GATE TRADE PIPELINE · ALWAYS-ON SAFETY LAYER
