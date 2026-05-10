@@ -4,13 +4,12 @@ import { getPortfolioBalances } from '../lib/trade.js';
 /**
  * POST /api/reconcile
  *
- * One-shot reconciliation: reads live Gemini balances and writes any
- * holdings that are missing from openPositions into DynamoDB.
- * Uses CURRENT market price as the cost basis so the 5% stop-loss
- * starts protecting these positions immediately.
+ * Full position sync: reads live Gemini balances and OVERWRITES openPositions
+ * in DynamoDB for every non-dust holding. Uses CURRENT market price as the
+ * cost basis, resetting the stop-loss baseline from now.
  *
- * Call this once whenever you suspect the memory is out of sync
- * with what's actually held on Gemini.
+ * This is a hard sync — it corrects corrupted records, not just missing ones.
+ * Run any time position data looks wrong.
  */
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -26,23 +25,17 @@ export default async function handler(req, res) {
       getPortfolioBalances(),
     ]);
 
-    const openPositions = settings.openPositions || {};
+    const existingPositions = settings.openPositions || {};
+    const newPositions = {};
+    const corrected = [];
     const added = [];
     const skipped = [];
 
     for (const [symbol, data] of Object.entries(liveBalances)) {
-      // Skip stablecoins — we don't need stop-loss on USD/GUSD
       if (symbol === 'USD' || symbol === 'GUSD') continue;
-      // Skip dust (under $1.00 notional value)
       if (data.notional < 1.00) continue;
 
-      if (openPositions[symbol]) {
-        // Already tracked — leave it alone
-        skipped.push({ symbol, reason: 'already_in_memory' });
-        continue;
-      }
-
-      // Fetch the current market price to use as cost basis
+      // Fetch current market price
       let currentPrice = null;
       try {
         const pRes = await fetch(`https://api.gemini.com/v1/pubticker/${symbol.toLowerCase()}usd`);
@@ -57,26 +50,44 @@ export default async function handler(req, res) {
         continue;
       }
 
-      // Write into openPositions with current price as the "buy price"
-      // Stop-loss will trigger if it drops a further 5% from NOW
-      openPositions[symbol] = {
-        buyPrice: currentPrice,
-        timestamp: Date.now(),
-        amount: data.amount.toString(),
-        reconciled: true, // Flag so we know this was bootstrapped, not a real buy
+      const wasTracked = !!existingPositions[symbol];
+      const costBasisUsd = parseFloat((currentPrice * data.amount).toFixed(4));
+
+      // Always write from live truth — corrects corrupted records too
+      newPositions[symbol] = {
+        buyPrice:     currentPrice,
+        amount:       data.amount.toString(),
+        costBasisUsd: costBasisUsd,
+        timestamp:    Date.now(),
+        reconciled:   true,
       };
 
-      added.push({ symbol, amount: data.amount, buyPrice: currentPrice, notional: data.notional });
-      await logAction(`🔄 RECONCILE: Added legacy position ${symbol} (${data.amount} @ $${currentPrice}) to stop-loss memory.`, true);
+      if (wasTracked) {
+        corrected.push({ symbol, amount: data.amount, buyPrice: currentPrice, costBasisUsd, notional: data.notional });
+        await logAction(`🔄 RECONCILE: Corrected position ${symbol} — ${data.amount.toFixed(6)} units @ $${currentPrice.toFixed(4)} (cost basis reset to $${costBasisUsd.toFixed(2)}).`, true);
+      } else {
+        added.push({ symbol, amount: data.amount, buyPrice: currentPrice, costBasisUsd, notional: data.notional });
+        await logAction(`🔄 RECONCILE: Added position ${symbol} — ${data.amount.toFixed(6)} units @ $${currentPrice.toFixed(4)}.`, true);
+      }
     }
 
-    await updateSettings({ openPositions });
+    // Preserve any positions that are in memory but NOT on exchange
+    // (e.g. pending or recently sold) — don't wipe them
+    for (const [symbol, pos] of Object.entries(existingPositions)) {
+      if (!newPositions[symbol]) {
+        newPositions[symbol] = pos;
+      }
+    }
+
+    await updateSettings({ openPositions: newPositions });
+    await logAction(`✅ RECONCILE COMPLETE — ${corrected.length} corrected, ${added.length} added, ${skipped.length} skipped.`);
 
     return res.status(200).json({
       success: true,
+      corrected,
       added,
       skipped,
-      totalTrackedNow: Object.keys(openPositions).length,
+      totalTrackedNow: Object.keys(newPositions).length,
     });
 
   } catch (err) {
