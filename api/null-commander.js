@@ -41,7 +41,7 @@ export async function runNullCommander() {
     ? settings.tankReports[0]
     : null;
 
-  const prompt = `You are NULL, the Strategic Commander of BASTION — an autonomous multi-agent crypto trading system.
+  const prompt = `You are NULL, the Strategic Commander of CIPHER — an autonomous multi-agent crypto trading system.
 
 COMMAND CHAIN: TANK (12h, Chief of Operations) → YOU (1h, Strategic Commander) → CIPHER (5min, Tactical Execution)
 
@@ -114,3 +114,4 @@ Return ONLY the raw directive string. No JSON. No markdown. No explanation. Just
 
   return directive;
 }
+

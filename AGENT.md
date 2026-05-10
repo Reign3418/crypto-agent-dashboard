@@ -1,7 +1,7 @@
-# BASTION — Multi-Agent Trading System
+# CIPHER — Multi-Agent Trading System
 ## Master Operations Document
 
-> **Era:** Bastion | **Version:** 2.0 | **Architecture:** Autonomous Multi-Agent System (MAS)
+> **Era:** CIPHER | **Version:** 2.0 | **Architecture:** Autonomous Multi-Agent System (MAS)
 > **Infrastructure:** Vercel Serverless + AWS DynamoDB + Gemini Exchange API
 
 ---
@@ -25,7 +25,7 @@
 | Agent | File | Role | Cycle |
 |---|---|---|---|
 | **DOZER** | `api/dozer.js` | Chief Accounting Officer — FIFO trade pairs, capital reconciliation, performance score, concentration risk | Every 15 min (cron) |
-| **BASTION AI** | `api/rollup.js` | Audit AI — human-initiated Deep Dive financial forensics | On demand |
+| **CIPHER AUDIT** | `api/rollup.js` | Audit AI — human-initiated Deep Dive financial forensics | On demand |
 
 ---
 
@@ -92,7 +92,7 @@ Trade executes → cost basis written to openPositions
 | Every 60 min | Cognitive Rollup + **NULL** strategic command |
 | Every 12 hrs | Macro Trend Ledger + **TANK** (Chief of Operations) |
 | Every 24 hrs | 24H Macro Ledger |
-| On demand | BASTION AI Deep Dive (human-initiated) |
+| On demand | CIPHER AUDIT Deep Dive (human-initiated) |
 
 ---
 
@@ -256,7 +256,7 @@ If Tank hasn't run recently and you want NULL to have context for the next cycle
 | `agent-personas/BIGJON.md` | Big Jon — Conflict Referee |
 | `agent-personas/NUMNUM.md` | NumNum — Fee Math Gate |
 | `agent-personas/DOZER.md` | Dozer — Chief Accounting Officer |
-| `whitepaper.md` | BASTION System Whitepaper — full design reference |
+| `whitepaper.md` | CIPHER System Whitepaper — full design reference |
 
 ---
 
@@ -280,3 +280,4 @@ If Tank hasn't run recently and you want NULL to have context for the next cycle
 - If Dozer's `NET POSITION` doesn't match your expectation, check `externalAnomalies`
 - Any sell with no matching buy shows up there — these are excluded from P&L by design
 - The reconciliation note at the bottom of the Dozer panel explains what Dozer found
+

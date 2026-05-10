@@ -11,7 +11,7 @@ import NullCommandCenter from './components/NullCommandCenter';
 import TankView from './components/TankView';
 import DozerView from './components/DozerView';
 import NumNumView from './components/NumNumView';
-import BastionArchitecture from './components/BastionArchitecture';
+import CipherArchitecture from './components/BastionArchitecture';
 
 const TABS = [
   { id: 'terminal',  label: '🖥️ Terminal',     hash: '#terminal' },
@@ -237,7 +237,7 @@ function App() {
         {/* ARCHITECTURE TAB */}
         {activeTab === 'bastion' && (
           <div style={{ flex: 1, overflow: 'hidden' }}>
-            <BastionArchitecture />
+            <CipherArchitecture />
           </div>
         )}
 

@@ -72,7 +72,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   const [auditResult, setAuditResult] = useState('');
   const [reconciling, setReconciling] = useState(false);
   const [reconcileResult, setReconcileResult] = useState('');
-  const [activePersona, setActivePersona] = useState('Bastion');
+  const [activePersona, setActivePersona] = useState('CIPHER');
   const [activeEraName, setActiveEraName] = useState('Aegis');
   const [concentrationOverride, setConcentrationOverride] = useState(null);
   const [overridePct,    setOverridePct]    = useState(75);
@@ -96,7 +96,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
       setCognitiveRollups(dataSettings.cognitiveRollups || []);
       setMissionAssessments(dataSettings.missionAssessments || []);
       setMacroLedgers(dataSettings.macroLedgers || []);
-      setActivePersona(dataSettings.activePersona || 'Bastion');
+      setActivePersona(dataSettings.activePersona || 'CIPHER');
       setActiveEraName(dataSettings.activeEraName || 'Aegis');
       const co = dataSettings.concentrationOverride || null;
       // Auto-expire if past expiry time
@@ -375,7 +375,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   };
 
   const declareNewEra = async () => {
-    const eraName = window.prompt("Enter a name for the new Era (e.g. Bastion, Hurricane):");
+    const eraName = window.prompt("Enter a name for the new Era (e.g. CIPHER, Hurricane):");
     if (!eraName || !eraName.trim()) return;
     
     if (!window.confirm(`Are you sure you want to declare the "${eraName.trim()}" Era? This will hide all previous logs from the Deep Dive Audit and reset the scorecard to 0.`)) return;
@@ -811,3 +811,4 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
     </div>
   );
 }
+

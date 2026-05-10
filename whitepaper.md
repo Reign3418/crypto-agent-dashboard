@@ -1,4 +1,4 @@
-# BASTION
+# CIPHER
 ## Autonomous Multi-Agent Crypto Trading System
 ### System Whitepaper — v2.0
 
@@ -11,18 +11,18 @@
 
 ## 1. Overview
 
-**BASTION** is a fully autonomous, multi-agent crypto trading system built on a deterministic-first philosophy: financial decisions must be mathematically verifiable, while strategic intelligence is delegated to a structured hierarchy of AI agents.
+**CIPHER** is a fully autonomous, multi-agent crypto trading system built on a deterministic-first philosophy: financial decisions must be mathematically verifiable, while strategic intelligence is delegated to a structured hierarchy of AI agents.
 
 The system manages a live crypto portfolio through a 5-minute trading cycle, supervised by a 6-agent team operating across two purpose-built rings:
 
 - **The Combat Ring** — agents that strategize and execute trades
 - **The Back Office Ring** — agents that keep the books clean and the ship operational
 
-BASTION runs 24 hours a day, 7 days a week, without human intervention. The human operator's only required action is depositing USD. The team handles everything else.
+CIPHER runs 24 hours a day, 7 days a week, without human intervention. The human operator's only required action is depositing USD. The team handles everything else.
 
 ---
 
-## 2. The Problem BASTION Solves
+## 2. The Problem CIPHER Solves
 
 Autonomous trading systems typically fail in one of three ways:
 
@@ -30,7 +30,7 @@ Autonomous trading systems typically fail in one of three ways:
 2. **They're math-blind.** LLMs are asked to calculate fees, P&L, and thresholds — and they guess. Badly.
 3. **They have no institutional memory.** Each cycle starts fresh. The system can repeat the same losing pattern 50 times because nothing is tracking the streak.
 
-BASTION solves all three:
+CIPHER solves all three:
 - Every decision is logged, attributed to a specific agent, and auditable
 - All financial math is handled by deterministic modules — no AI token ever touches a fee calculation
 - A persistent hierarchy of AI memory (5min → 1hr → 12hr) ensures the team learns from history
@@ -80,7 +80,7 @@ DOZER  (every 15 minutes)
 ├── Concentration risk monitoring (% of capital per asset)
 └── Writes verified data → Tank reads it every 12h
 
-BASTION AI  (on demand)
+CIPHER AUDIT  (on demand)
 └── Deep Dive forensic audit — human-initiated financial review
 ```
 
@@ -195,21 +195,21 @@ Trade executes → cost basis written → Dozer reconciles on next 15min tick
 ## 5. Design Philosophy
 
 ### 5.1 Deterministic Math, AI Strategy
-The most important architectural decision in BASTION: **financial math is never delegated to an LLM.**
+The most important architectural decision in CIPHER: **financial math is never delegated to an LLM.**
 
 LLMs are probabilistic. They reason about numbers rather than computing them. For fee calculations, P&L reconciliation, and trade viability — this is unacceptable. A 0.1% error in fee math can turn a profitable trade into a losing one.
 
-BASTION assigns math to deterministic modules (NumNum, Dozer) and reserves AI for what AI does well: pattern recognition, strategic adaptation, and plain-language synthesis.
+CIPHER assigns math to deterministic modules (NumNum, Dozer) and reserves AI for what AI does well: pattern recognition, strategic adaptation, and plain-language synthesis.
 
 ### 5.2 Spirit Over Letter
-Big Jon's upgrade to spirit-of-directive reasoning is one of the most important design decisions in BASTION v2. An agent that checks the literal text of a directive will fail the moment markets move faster than the directive's refresh rate (60 minutes).
+Big Jon's upgrade to spirit-of-directive reasoning is one of the most important design decisions in CIPHER v2. An agent that checks the literal text of a directive will fail the moment markets move faster than the directive's refresh rate (60 minutes).
 
 By asking "what did NULL *intend*?" rather than "what did NULL *say*?", Big Jon allows the team to respond to fast-moving market conditions without requiring an immediate NULL refresh on every trade.
 
 The reactive NULL trigger (fires on >3% movers) provides the backup: if conditions change dramatically, NULL refreshes automatically anyway.
 
 ### 5.3 No Agent Has Unchecked Authority
-Every agent in BASTION is bounded:
+Every agent in CIPHER is bounded:
 
 | Agent | Bounded by |
 |---|---|
@@ -223,7 +223,7 @@ Every agent in BASTION is bounded:
 The hard stop-loss (5% drop from buy price) runs outside the AI decision loop entirely. No agent can disable it. It is the system's floor.
 
 ### 5.4 Olympic Rings — The Scalability Model
-BASTION is designed as interconnected rings of specialized teams, not a monolithic system. Each ring is self-contained:
+CIPHER is designed as interconnected rings of specialized teams, not a monolithic system. Each ring is self-contained:
 
 - **Combat Ring** handles market intelligence and execution
 - **Back Office Ring** handles accounting and forensics
@@ -244,7 +244,7 @@ Additional rings can be added without disrupting existing ones. Planned future r
 | AI models | Google Gemini 2.5 Flash | Powers CIPHER, NULL, Tank, Big Jon |
 | Frontend | React + Vite | Dashboard served as static site |
 
-**Key property:** No local processes. BASTION runs entirely on cloud infrastructure. The human operator does not need to have any software running. The system operates 24/7 without a local machine.
+**Key property:** No local processes. CIPHER runs entirely on cloud infrastructure. The human operator does not need to have any software running. The system operates 24/7 without a local machine.
 
 ---
 
@@ -272,31 +272,32 @@ Additional rings can be added without disrupting existing ones. Planned future r
 ---
 
 ## 9. Current Performance Snapshot
-*(Updated: Bastion Era, Day 9)*
+*(Updated: CIPHER Era, Day 9)*
 
 | Metric | Value |
 |---|---|
-| Era | Bastion |
+| Era | CIPHER |
 | Total trades executed | 15 |
 | Open positions | LINK, SOL |
 | Active agents | 6 (Tank, NULL, CIPHER, Big Jon, NumNum, Dozer) |
 | System rings | 2 (Combat + Back Office) |
-| Autonomous since | Day 1 of Bastion era |
+| Autonomous since | Day 1 of CIPHER era |
 
 ---
 
 ## 10. The Name
 
-**BASTION** — *a projecting part of a fortification; a well-fortified position.*
+**CIPHER** — *a projecting part of a fortification; a well-fortified position.*
 
 The system does not seek spectacular gains at the cost of survival. It holds its position, defends capital, and advances methodically. Every gate, every agent, every review cycle is a wall. The fund survives because the walls hold.
 
 > *"I know you're out there. I can feel you now. I know that you're afraid... you're afraid of us. You're afraid of change."*
 > — Neo, The Matrix
 >
-> The market is afraid of BASTION. Or it should be.
+> The market is afraid of CIPHER. Or it should be.
 
 ---
 
-*BASTION Whitepaper v2.0 — Bastion Era*
+*CIPHER Whitepaper v2.0 — CIPHER Era*
 *Architecture designed and built in collaboration with Antigravity AI*
+

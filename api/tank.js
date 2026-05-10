@@ -62,7 +62,7 @@ export async function runTank() {
   const period = hour >= 6 && hour < 18 ? 'AM' : 'PM';
 
   // ── Tank AI Prompt ────────────────────────────────────────────────────────
-  const tankPrompt = `You are TANK, the Chief of Operations for BASTION — an autonomous multi-agent crypto trading system.
+  const tankPrompt = `You are TANK, the Chief of Operations for CIPHER — an autonomous multi-agent crypto trading system.
 
 Your identity: You are named after Tank from The Matrix — the operator who never goes into the simulation but sees every feed, knows where every agent is, and keeps the mission viable.
 
@@ -316,3 +316,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: e.message });
   }
 }
+

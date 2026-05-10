@@ -1,6 +1,6 @@
 /**
  * DOZER — Chief Accounting Officer / Back-Office Operator
- * BASTION Multi-Agent Trading System
+ * CIPHER Multi-Agent Trading System
  *
  * Named after Dozer from The Matrix — Tank's brother. Born free. Never jacked in.
  * He kept the Nebuchadnezzar running while Tank ran comms.
@@ -366,3 +366,4 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: e.message });
   }
 }
+

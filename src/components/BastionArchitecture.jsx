@@ -34,7 +34,7 @@ const TIP = {
     body: 'Runs every 15 minutes. No AI — pure deterministic math. FIFO-matches every buy to its corresponding sell. Computes realized P&L, win rate, fee drag, current streak, and concentration risk per asset. Writes dozerReport to DynamoDB. Tank reads this report every 12h to calibrate NumNum.',
   },
   bastionai: {
-    title: 'BASTION AI — Deep Dive Auditor',
+    title: 'CIPHER AUDIT — Deep Dive Auditor',
     body: 'On-demand only — runs when you click the audit button. Reads the full trade history and Dozer\'s FIFO pairs and produces a plain-language forensic report. Follows strict accounting rules: never calculates P&L on externally-acquired assets, never over-reports gains.',
   },
   stoploss: {
@@ -186,7 +186,7 @@ function SafetyCard({ id, icon, name, desc, color }) {
   );
 }
 
-export default function BastionArchitecture() {
+export default function CipherArchitecture() {
   const [settings, setSettings] = useState({});
 
   useEffect(() => {
@@ -225,7 +225,7 @@ export default function BastionArchitecture() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
             <div>
               <div style={{ fontSize: '1.05rem', fontWeight: 900, letterSpacing: '0.15em', color: '#e2e8f0' }}>
-                ◈ BASTION — MULTI-AGENT AUTONOMOUS TRADING
+                ◈ CIPHER — MULTI-AGENT AUTONOMOUS TRADING
               </div>
               <div style={{ fontSize: '0.63rem', color: '#475569', marginTop: '4px', letterSpacing: '0.06em' }}>
                 COMBAT RING · BACK OFFICE RING · FOUR-GATE TRADE PIPELINE · ALWAYS-ON SAFETY LAYER
@@ -336,7 +336,7 @@ export default function BastionArchitecture() {
                 <span style={{ fontSize: '0.55rem', color: '#334155', whiteSpace: 'nowrap' }}>feeds TANK</span>
                 <div style={{ flex: 1, height: '1px', background: 'linear-gradient(90deg,#818cf844,#f59e0b44)' }} />
               </div>
-              <Agent id="bastionai" icon="🔍" name="BASTION AI" role="Deep Dive Auditor" cadence="on-demand" color="#34d399"
+              <Agent id="bastionai" icon="🔍" name="CIPHER AUDIT" role="Deep Dive Auditor" cadence="on-demand" color="#34d399"
                 output="Forensic audit report" />
             </div>
           </div>

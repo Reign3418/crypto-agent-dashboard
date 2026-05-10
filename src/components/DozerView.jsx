@@ -334,7 +334,7 @@ export default function DozerView() {
             ⚠️ External Anomalies — Excluded from P&L
           </h3>
           <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '10px' }}>
-            These assets were acquired outside BASTION (e.g., manual transfers) and then sold. Acquisition cost is unknown — excluded from all P&L calculations.
+            These assets were acquired outside CIPHER (e.g., manual transfers) and then sold. Acquisition cost is unknown — excluded from all P&L calculations.
           </div>
           {externalAnomalies.map((a, i) => (
             <div key={i} style={{ padding: '8px 12px', background: 'rgba(245,158,11,0.08)', borderRadius: '8px', fontSize: '0.82rem', marginTop: '6px' }}>
@@ -347,3 +347,4 @@ export default function DozerView() {
     </div>
   );
 }
+
