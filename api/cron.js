@@ -93,6 +93,41 @@ export default async function handler(req, res) {
       // If it failed, the next cron tick will retry immediately.
       if (step2ok) {
         await updateSettings({ lastMissionTime: now.toString() });
+
+        // ── MISSION FEASIBILITY AUTO-RECALIBRATION ─────────────────────────
+        // After every Dozer run, check if capital changed significantly since
+        // Tank set the mission. If so, recalibrate Tank immediately — no human
+        // Force Sync needed. This is the core self-healing mechanism.
+        try {
+          const fresh = await getSettings();
+          const currentLiquid  = fresh.dozerReport?.capitalBalance?.liquidUSD || 0;
+          const missionLiquid  = parseFloat(fresh.tankMissionLiquidUSD || '0');
+          const lastTankRanAt  = parseInt(fresh.last12HTime || '0');
+          const minSinceLastTank = (now - lastTankRanAt) / 60000;
+
+          // Capital change % since Tank last set the mission
+          const liquidChangePct = missionLiquid > 0
+            ? Math.abs(currentLiquid - missionLiquid) / missionLiquid * 100
+            : currentLiquid > 0 ? 100 : 0;
+
+          // Trigger conditions:
+          //   1. Capital changed >30% since mission was set
+          //   2. Tank hasn't run in the last 30 minutes (prevent storm)
+          //   3. We have budget left in this cron window
+          if (liquidChangePct > 30 && minSinceLastTank > 30 && timeLeft() > 30000) {
+            await logAction(
+              `⚡ [AUTO-RECAL] Liquid changed ${liquidChangePct.toFixed(0)}% since mission set ($${missionLiquid.toFixed(2)} → $${currentLiquid.toFixed(2)}). Auto-triggering Tank recalibration.`,
+              true
+            );
+            const { runTank } = await import('./tank.js');
+            const tankReport = await runTank();
+            await updateSettings({ last12HTime: now.toString() });
+            results.autoRecal = `Tank recalibrated — ${tankReport.systemHealth}`;
+          }
+        } catch (e) {
+          await logAction(`⚠️ Auto-recal check error: ${e.message}`);
+        }
+        // ── END AUTO-RECALIBRATION ─────────────────────────────────────────
       }
     }
 

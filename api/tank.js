@@ -359,6 +359,7 @@ Return ONLY valid JSON (no markdown, no code blocks):
     missionDirective: report.missionDirective,
     missionSetBy: 'Tank',
     missionSetAt: now.toISOString(),
+    tankMissionLiquidUSD: liquidUSD.toString(), // baseline for auto-recal drift detection
     numNumFloor:            numNumFloor.toString(),
     numNumStopLoss:         numNumStopLoss.toString(),
     trailingStopLoss:       trailingStopLoss.toString(),
