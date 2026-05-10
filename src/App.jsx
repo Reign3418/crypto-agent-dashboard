@@ -10,11 +10,13 @@ import TerminalView from './components/TerminalView';
 import NullCommandCenter from './components/NullCommandCenter';
 import TankView from './components/TankView';
 import DozerView from './components/DozerView';
+import NumNumView from './components/NumNumView';
 
 const TABS = [
   { id: 'terminal',  label: '🖥️ Terminal',   hash: '#terminal' },
   { id: 'tank',      label: '🎯 Tank',        hash: '#tank' },
   { id: 'dozer',     label: '🏗️ Dozer',      hash: '#dozer'   },
+  { id: 'numnum',    label: '🔢 NumNum',      hash: '#numnum'  },
   { id: 'null',      label: '🧠 NULL',        hash: '#null' },
   { id: 'strategy',  label: '⚡ Strategy',   hash: '#strategy' },
   { id: 'logs',      label: '📋 Logs',       hash: '#logs' },
@@ -242,6 +244,13 @@ function App() {
         {activeTab === 'dozer' && (
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <DozerView />
+          </div>
+        )}
+
+        {/* NUMNUM TAB */}
+        {activeTab === 'numnum' && (
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <NumNumView />
           </div>
         )}
 
