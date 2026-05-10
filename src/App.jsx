@@ -11,10 +11,12 @@ import NullCommandCenter from './components/NullCommandCenter';
 import TankView from './components/TankView';
 import DozerView from './components/DozerView';
 import NumNumView from './components/NumNumView';
+import BastionArchitecture from './components/BastionArchitecture';
 
 const TABS = [
-  { id: 'terminal',  label: '🖥️ Terminal',   hash: '#terminal' },
-  { id: 'tank',      label: '🎯 Tank',        hash: '#tank' },
+  { id: 'terminal',  label: '🖥️ Terminal',      hash: '#terminal' },
+  { id: 'bastion',   label: '◈ Architecture',  hash: '#bastion'  },
+  { id: 'tank',      label: '🎯 Tank',           hash: '#tank' },
   { id: 'dozer',     label: '🏗️ Dozer',      hash: '#dozer'   },
   { id: 'numnum',    label: '🔢 NumNum',      hash: '#numnum'  },
   { id: 'null',      label: '🧠 NULL',        hash: '#null' },
@@ -232,6 +234,12 @@ function App() {
           </div>
         )}
 
+        {/* ARCHITECTURE TAB */}
+        {activeTab === 'bastion' && (
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <BastionArchitecture />
+          </div>
+        )}
 
         {/* TANK TAB */}
         {activeTab === 'tank' && (
