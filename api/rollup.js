@@ -13,12 +13,12 @@ export default async function handler(req, res) {
 
   try {
     const settings = await getSettings();
-    if (!settings.autopilotEnabled) {
-      return res.status(200).json({ message: 'Autopilot offline.' });
-    }
-
+    // NOTE: Rollup and Macro Ledgers are MEMORY systems — they run regardless of autopilot state.
+    // Only the Mission Tracker is skipped if there is no active mission directive.
+    // Never gate memory accumulation on the autopilot toggle.
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_AI_API_KEY });
     const logs = await getRecentLogs();
+
 
     // ---- MISSION TRACKER (15 MINS) ----
     if (task === 'mission') {
