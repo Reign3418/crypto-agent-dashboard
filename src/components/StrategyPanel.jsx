@@ -65,8 +65,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   const [autopilotEnabled, setAutopilotEnabled] = useState(false);
   const [liquidatableAssets, setLiquidatableAssets] = useState([]);
   const [missionDirective, setMissionDirective] = useState('');
-  const [missionSetBy, setMissionSetBy]     = useState('Human');
-  const [missionSetAt, setMissionSetAt]     = useState(null);
+  const [coachNotes, setCoachNotes] = useState('');
   const [cognitiveRollups, setCognitiveRollups] = useState([]);
   const [missionAssessments, setMissionAssessments] = useState([]);
   const [macroLedgers, setMacroLedgers] = useState([]);
@@ -88,9 +87,8 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
       if (Array.isArray(dataStrats)) setStrategies(dataStrats);
       setAutopilotEnabled(dataSettings.autopilotEnabled || false);
       setLiquidatableAssets(dataSettings.liquidatableAssets || []);
-      setMissionDirective(dataSettings.missionDirective || 'No active mission — Tank will set one on its next 12h run.');
-      setMissionSetBy(dataSettings.missionSetBy || 'Human');
-      setMissionSetAt(dataSettings.missionSetAt || null);
+      setMissionDirective(dataSettings.missionDirective || 'Make 10 trades and secure $25 in profit.');
+      setCoachNotes(dataSettings.coachNotes || '');
       setCognitiveRollups(dataSettings.cognitiveRollups || []);
       setMissionAssessments(dataSettings.missionAssessments || []);
       setMacroLedgers(dataSettings.macroLedgers || []);
@@ -136,7 +134,35 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
     }
   };
 
-  // Mission directive is Tank-owned — no human save function needed.
+  const saveMissionDirective = async (e) => {
+    const val = e.target.value;
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            missionDirective: val,
+            missionCompletions: 0,
+            missionStartTime: new Date().toISOString()
+        })
+      });
+    } catch (err) {
+      console.error("Failed to save mission directive", err);
+    }
+  };
+
+  const saveCoachNotes = async (e) => {
+    const val = e.target.value;
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coachNotes: val })
+      });
+    } catch (err) {
+      console.error("Failed to save coach notes", err);
+    }
+  };
 
   const fetchTriggerHistory = useCallback(async () => {
     try {
@@ -386,39 +412,30 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
       {/* ── Row 2: Three-column grid ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
 
-        {/* Col 1: Mission (Tank-owned, read-only) + Safe Pool */}
+        {/* Col 1: Mission + Coach */}
         <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>💼 Mission Control</h3>
 
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <label style={{ ...labelStyle, marginBottom: 0 }}>Active Mission Directive</label>
-              <span style={{
-                fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.05em',
-                padding: '2px 8px', borderRadius: '10px',
-                background: missionSetBy === 'Tank' ? 'rgba(245,158,11,0.15)' : 'rgba(99,102,241,0.15)',
-                color: missionSetBy === 'Tank' ? '#f59e0b' : '#818cf8',
-                border: `1px solid ${missionSetBy === 'Tank' ? '#f59e0b40' : '#818cf840'}`,
-              }}>
-                {missionSetBy === 'Tank' ? '🎯 Set by Tank' : '👤 Set by Human'}
-              </span>
-            </div>
-            <div style={{
-              width: '100%', background: 'var(--bg-tertiary)',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--text-primary)', padding: '12px',
-              borderRadius: '8px', fontSize: '0.88rem',
-              lineHeight: 1.55, minHeight: '64px',
-              fontStyle: missionDirective.startsWith('No active') ? 'italic' : 'normal',
-            }}>
-              {missionDirective}
-            </div>
-            {missionSetAt && (
-              <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                Last updated: {new Date(missionSetAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                &nbsp;·&nbsp; To change the mission, Tank will update it on its next 12h run.
-              </div>
-            )}
+            <label style={labelStyle}>Mission Directive</label>
+            <textarea
+              value={missionDirective}
+              onChange={(e) => setMissionDirective(e.target.value)}
+              onBlur={saveMissionDirective}
+              placeholder="e.g. Scalp BTC/XRP and build a $10 profit cushion."
+              style={{ width: '100%', background: 'var(--bg-tertiary)', border: '1px solid var(--border-subtle)', color: 'var(--text-primary)', padding: '10px', borderRadius: '8px', fontSize: '0.85rem', resize: 'vertical', minHeight: '70px', boxSizing: 'border-box' }}
+            />
+          </div>
+
+          <div>
+            <label style={labelStyle}>Coach&apos;s Override Notes</label>
+            <textarea
+              value={coachNotes}
+              onChange={(e) => setCoachNotes(e.target.value)}
+              onBlur={saveCoachNotes}
+              placeholder="e.g. DOGE is pumping — go heavier on DOGE today."
+              style={{ width: '100%', background: 'rgba(59,130,246,0.05)', border: '1px solid var(--accent-blue)', color: 'var(--text-primary)', padding: '10px', borderRadius: '8px', fontSize: '0.85rem', resize: 'vertical', minHeight: '55px', boxSizing: 'border-box' }}
+            />
           </div>
 
           <div>
