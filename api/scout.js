@@ -415,6 +415,56 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
         const apDecision = JSON.parse(rawApText);
         
         if (apDecision.decision === 'buy' || apDecision.decision === 'sell') {
+            let buyBlocked = false;
+
+            // ── BUY PRE-CHECKS — Deterministic gates before any AI involvement ─────────
+            // These run BEFORE Big Jon so cheap math blocks trades before expensive AI calls.
+            if (apDecision.decision === 'buy') {
+              const sym = apDecision.symbol?.toUpperCase();
+
+              // Gate 1: Concentration limit — prevents over-allocation into one asset.
+              // Settable via settings.concentrationLimit (default 70%).
+              const concentrationLimit = parseFloat(settings.concentrationLimit || '70');
+              const openPos = settings.openPositions || {};
+              let totalDeployed = 0;
+              for (const pos of Object.values(openPos)) {
+                totalDeployed += parseFloat(pos.amount || 0) * parseFloat(pos.buyPrice || 0);
+              }
+              const existingPos      = openPos[sym];
+              const existingDeployed = existingPos
+                ? parseFloat(existingPos.amount || 0) * parseFloat(existingPos.buyPrice || 0)
+                : 0;
+              const proposedSymbolTotal = existingDeployed + apDecision.amount;
+              const proposedGrandTotal  = totalDeployed + apDecision.amount;
+              const proposedPct = proposedGrandTotal > 0
+                ? (proposedSymbolTotal / proposedGrandTotal) * 100
+                : 100;
+
+              if (proposedPct > concentrationLimit) {
+                await logAction(
+                  `⛔ CONCENTRATION BLOCKED: Adding $${apDecision.amount.toFixed(2)} to ${sym} would deploy ${proposedPct.toFixed(1)}% in one asset (limit: ${concentrationLimit}%). Diversify first.`,
+                  true
+                );
+                buyBlocked = true;
+              }
+
+              // Gate 2: Entry momentum — 5m + 15m MAs must both be bullish before buying.
+              // Prevents entering into downtrending assets on short-term bounces.
+              if (!buyBlocked) {
+                const { checkEntryMomentum } = await import('../lib/momentum.js');
+                const momentum = await checkEntryMomentum(sym);
+                await logAction(`📈 Entry quality [${sym}]: ${momentum.reason}`);
+                if (momentum.score !== null && !momentum.approved) {
+                  await logAction(
+                    `⛔ ENTRY QUALITY BLOCKED [${sym}]: Momentum not confirmed — ${momentum.reason}. Waiting for 5m + 15m alignment.`,
+                    true
+                  );
+                  buyBlocked = true;
+                }
+              }
+            }
+            // ── END BUY PRE-CHECKS ────────────────────────────────────────────────────────
+            if (!buyBlocked) {
            // ── BIG JON CONFLICT CHECK ──────────────────────────────────────────
            // Big Jon steps in before any trade. If CIPHER and NULL are out of sync, he stops the fight.
            const sync = await checkNullCipherSync(ai, settings.coachNotes, apDecision);
@@ -482,6 +532,7 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
                });
              } // end NumNum approved
            } // end Big Jon approved
+            } // end !buyBlocked
         } else if (apDecision.decision === 'complete') {
            const { updateSettings } = await import('../lib/db.js');
            const completions = (settings.missionCompletions || 0) + 1;

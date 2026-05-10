@@ -46,10 +46,13 @@ function computeGateCheck(buyPrice, currentPrice, floor, stopLoss) {
 }
 
 function classifyNumNumLog(action = '') {
-  if (action.includes('STOP-LOSS')) return { label: 'STOP-EXIT', color: '#f97316' };
-  if (action.includes('APPROVE')) return { label: 'APPROVE', color: '#22c55e' };
+  if (action.includes('STOP-LOSS'))              return { label: 'STOP-EXIT',    color: '#f97316' };
+  if (action.includes('CONCENTRATION BLOCKED'))  return { label: 'CONCENTR.',    color: '#e879f9' };
+  if (action.includes('ENTRY QUALITY BLOCKED'))  return { label: 'MOMENTUM ⛔',  color: '#f59e0b' };
+  if (action.includes('Entry quality'))          return { label: 'MOMENTUM',     color: '#38bdf8' };
+  if (action.includes('APPROVE'))                return { label: 'APPROVE',      color: '#22c55e' };
   if (action.includes('REJECT') || action.includes('BLOCKED')) return { label: 'BLOCK', color: '#f59e0b' };
-  if (action.includes('calibrated')) return { label: 'CALIBRATION', color: '#818cf8' };
+  if (action.includes('calibrated'))             return { label: 'CALIBRATION',  color: '#818cf8' };
   return { label: 'GATE', color: '#38bdf8' };
 }
 
@@ -77,7 +80,10 @@ export default function NumNumView() {
             logs.filter(l =>
               l.action?.includes('NumNum') ||
               l.action?.includes('numNum') ||
-              l.action?.includes('[TANK] NumNum')
+              l.action?.includes('[TANK] NumNum') ||
+              l.action?.includes('CONCENTRATION BLOCKED') ||
+              l.action?.includes('ENTRY QUALITY BLOCKED') ||
+              l.action?.includes('Entry quality')
             ).slice(0, 40)
           );
         }
