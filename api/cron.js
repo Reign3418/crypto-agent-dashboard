@@ -95,7 +95,20 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── STEP 3: Cognitive Rollup (every 60 min) ───────────────────────────────
+    // ── STEP 3: NULL — Strategic Command (every 60 min) ──────────────────────
+    // NULL runs BEFORE the Cognitive Rollup so it is not starved by the AI summary.
+    if (timeLeft() > 8000 && now - timestamps.lastNullTime >= SIXTY_MIN && settings.autopilotEnabled) {
+      try {
+        const { runNullCommander } = await import('./null-commander.js');
+        const directive = await runNullCommander();
+        await updateSettings({ lastNullTime: now.toString() });
+        results.null = `Directive issued`;
+      } catch (e) {
+        await logAction(`⚠️ NULL Commander error: ${e.message}`);
+      }
+    }
+
+    // ── STEP 4: Cognitive Rollup (every 60 min) ───────────────────────────────
     if (timeLeft() > 12000 && now - timestamps.lastRollupTime >= SIXTY_MIN) {
       try {
         const { default: rollupHandler } = await import('./rollup.js');
@@ -109,19 +122,9 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── STEP 4: NULL — Strategic Command (every 60 min) ──────────────────────
-    if (timeLeft() > 12000 && now - timestamps.lastNullTime >= SIXTY_MIN && settings.autopilotEnabled) {
-      try {
-        const { runNullCommander } = await import('./null-commander.js');
-        const directive = await runNullCommander();
-        await updateSettings({ lastNullTime: now.toString() });
-        results.null = `Directive issued`;
-      } catch (e) {
-        await logAction(`⚠️ NULL Commander error: ${e.message}`);
-      }
-    }
 
     // ── STEP 5: 12H Macro Ledger + TANK ──────────────────────────────────────
+
     if (timeLeft() > 15000 && now - timestamps.last12HTime >= TWELVE_HR) {
       try {
         const { default: rollupHandler } = await import('./rollup.js');

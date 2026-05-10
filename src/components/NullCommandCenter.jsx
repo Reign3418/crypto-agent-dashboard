@@ -22,8 +22,10 @@ export default function NullCommandCenter() {
         setCoachNotes(s.coachNotes || '');
       }
 
-      // Pull last 80 logs and split into NULL vs CIPHER feeds
-      const logRes = await fetch('/api/logs?limit=80');
+      // Pull last 500 logs and split into NULL vs CIPHER feeds
+      // NULL logs once per hour; CIPHER can produce 50+ entries per hour, so 80 was burying NULL.
+      const logRes = await fetch('/api/logs?limit=500');
+
       if (logRes.ok) {
         const logs = await logRes.json();
         setNullLogs(logs.filter(l => l.action?.includes('[NULL]')));
