@@ -14,14 +14,14 @@ import NumNumView from './components/NumNumView';
 import BastionArchitecture from './components/BastionArchitecture';
 
 const TABS = [
-  { id: 'terminal',  label: '🖥️ Terminal',      hash: '#terminal' },
-  { id: 'bastion',   label: '◈ Architecture',  hash: '#bastion'  },
-  { id: 'tank',      label: '🎯 Tank',           hash: '#tank' },
-  { id: 'dozer',     label: '🏗️ Dozer',      hash: '#dozer'   },
-  { id: 'numnum',    label: '🔢 NumNum',      hash: '#numnum'  },
-  { id: 'null',      label: '🧠 NULL',        hash: '#null' },
-  { id: 'strategy',  label: '⚡ Strategy',   hash: '#strategy' },
-  { id: 'logs',      label: '📋 Logs',       hash: '#logs' },
+  { id: 'terminal',  label: '🖥️ Terminal',     hash: '#terminal' },
+  { id: 'tank',      label: '🎯 Tank',          hash: '#tank' },
+  { id: 'dozer',     label: '🏗️ Dozer',        hash: '#dozer'   },
+  { id: 'numnum',    label: '🔢 NumNum',        hash: '#numnum'  },
+  { id: 'null',      label: '🧠 NULL',          hash: '#null' },
+  { id: 'strategy',  label: '⚡ Strategy',      hash: '#strategy' },
+  { id: 'logs',      label: '📋 Logs',          hash: '#logs' },
+  { id: 'bastion',   label: '◈ Architecture',   hash: '#bastion'  },
 ];
 
 function getInitialTab() {
