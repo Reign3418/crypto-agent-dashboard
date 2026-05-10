@@ -9,10 +9,12 @@ import StrategyPanel from './components/StrategyPanel';
 import TerminalView from './components/TerminalView';
 import NullCommandCenter from './components/NullCommandCenter';
 import TankView from './components/TankView';
+import DozerView from './components/DozerView';
 
 const TABS = [
   { id: 'terminal',  label: '🖥️ Terminal',   hash: '#terminal' },
   { id: 'tank',      label: '🎯 Tank',        hash: '#tank' },
+  { id: 'dozer',     label: '🏗️ Dozer',      hash: '#dozer'   },
   { id: 'null',      label: '🧠 NULL',        hash: '#null' },
   { id: 'strategy',  label: '⚡ Strategy',   hash: '#strategy' },
   { id: 'logs',      label: '📋 Logs',       hash: '#logs' },
@@ -178,6 +180,13 @@ function App() {
         {activeTab === 'tank' && (
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <TankView />
+          </div>
+        )}
+
+        {/* DOZER TAB */}
+        {activeTab === 'dozer' && (
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <DozerView />
           </div>
         )}
 
