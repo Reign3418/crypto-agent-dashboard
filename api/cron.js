@@ -36,9 +36,11 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const MAX_RUN_MS = 50000; // bail before Vercel's 60s function limit
   const startTime = Date.now();
   const runId = new Date().toISOString();
   const results = {};
+  const timeLeft = () => MAX_RUN_MS - (Date.now() - startTime);
 
   try {
     await logAction(`⏰ Cron started at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, true);
@@ -54,12 +56,17 @@ export default async function handler(req, res) {
     };
 
     // ── STEP 1: CIPHER — Tactical Scout (every tick) ─────────────────────────
-    const { runScoutMission } = await import('./scout.js');
-    const scoutData = await runScoutMission();
-    results.scout = `${scoutData?.report?.length || 0} assets scouted`;
+    // Skip entirely if autopilot is off — saves 20-40s of AI + API calls per tick
+    if (settings.autopilotEnabled) {
+      const { runScoutMission } = await import('./scout.js');
+      const scoutData = await runScoutMission();
+      results.scout = `${scoutData?.report?.length || 0} assets scouted`;
+    } else {
+      results.scout = 'skipped (autopilot off)';
+    }
 
     // ── STEP 2: DOZER — Accounting (every 15 min) ────────────────────────────
-    if (now - timestamps.lastMissionTime >= FIFTEEN_MIN) {
+    if (timeLeft() > 8000 && now - timestamps.lastMissionTime >= FIFTEEN_MIN) {
       let step2ok = false;
       try {
         const { runDozer } = await import('./dozer.js');
@@ -89,7 +96,7 @@ export default async function handler(req, res) {
     }
 
     // ── STEP 3: Cognitive Rollup (every 60 min) ───────────────────────────────
-    if (now - timestamps.lastRollupTime >= SIXTY_MIN) {
+    if (timeLeft() > 12000 && now - timestamps.lastRollupTime >= SIXTY_MIN) {
       try {
         const { default: rollupHandler } = await import('./rollup.js');
         const mockReq = { method: 'POST', query: { task: 'rollup' }, headers: { host: req.headers.host } };
@@ -103,7 +110,7 @@ export default async function handler(req, res) {
     }
 
     // ── STEP 4: NULL — Strategic Command (every 60 min) ──────────────────────
-    if (now - timestamps.lastNullTime >= SIXTY_MIN && settings.autopilotEnabled) {
+    if (timeLeft() > 12000 && now - timestamps.lastNullTime >= SIXTY_MIN && settings.autopilotEnabled) {
       try {
         const { runNullCommander } = await import('./null-commander.js');
         const directive = await runNullCommander();
@@ -115,7 +122,7 @@ export default async function handler(req, res) {
     }
 
     // ── STEP 5: 12H Macro Ledger + TANK ──────────────────────────────────────
-    if (now - timestamps.last12HTime >= TWELVE_HR) {
+    if (timeLeft() > 15000 && now - timestamps.last12HTime >= TWELVE_HR) {
       try {
         const { default: rollupHandler } = await import('./rollup.js');
         const mockReq = { method: 'POST', query: { task: '12h' }, headers: { host: req.headers.host } };
@@ -139,7 +146,7 @@ export default async function handler(req, res) {
     }
 
     // ── STEP 6: 24H Macro Ledger ──────────────────────────────────────────────
-    if (now - timestamps.last24HTime >= TWENTY_FOUR_HR) {
+    if (timeLeft() > 8000 && now - timestamps.last24HTime >= TWENTY_FOUR_HR) {
       try {
         const { default: rollupHandler } = await import('./rollup.js');
         const mockReq = { method: 'POST', query: { task: '24h' }, headers: { host: req.headers.host } };
