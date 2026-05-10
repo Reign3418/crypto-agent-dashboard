@@ -228,7 +228,7 @@ export default function BastionArchitecture() {
                 icon="🧠" name="NULL" role="Strategic Commander" cadence="60m" color="#38bdf8"
                 health={health.null}
                 output="coachNotes — tactical directive to CIPHER"
-                quote='"I translate Tank\'s mandate into CIPHER\'s next move."'
+                quote={`"I translate Tank's mandate into CIPHER's next move."`}
               />
             </div>
 
@@ -334,7 +334,7 @@ export default function BastionArchitecture() {
                   FIFO P&L · Win rate · Fee drag · Capital risk
                 </div>
                 <div style={{ fontSize: '0.58rem', color: '#334155', fontStyle: 'italic' }}>
-                  "No AI. Pure math. The only truth."
+                  {`"No AI. Pure math. The only truth."`}
                 </div>
               </div>
 
