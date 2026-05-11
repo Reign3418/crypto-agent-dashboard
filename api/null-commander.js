@@ -41,6 +41,17 @@ export async function runNullCommander() {
     ? settings.tankReports[0]
     : null;
 
+  // ── Staleness check — prevent stale CRITICAL reports from locking the system ──
+  // If Tank's last report is >3h old and said CRITICAL, NULL should use current
+  // conditions (liquid, logs) rather than blindly enforcing an outdated lockdown.
+  const missionSetAt     = settings.missionSetAt ? new Date(settings.missionSetAt) : null;
+  const tankReportAgeMin = missionSetAt ? Math.floor((Date.now() - missionSetAt.getTime()) / 60000) : 999;
+  const tankReportAgeHrs = (tankReportAgeMin / 60).toFixed(1);
+  const currentLiquidUSD = settings.dozerReport?.capitalBalance?.liquidUSD || 0;
+  const tankIsCritical   = latestTankReport?.systemHealth === 'CRITICAL';
+  const tankIsStale      = tankReportAgeMin > 180; // older than 3 hours
+  const staleOverrideActive = tankIsCritical && tankIsStale && currentLiquidUSD > 5;
+
   // Tank's live operating envelope — recalibrates every 6h
   const tankAggressionLevel = settings.tankAggressionLevel || 'neutral';
   const tankRegimeDetected  = settings.tankRegimeDetected  || 'unknown';
@@ -70,8 +81,11 @@ NULL may NOT disable the Emergency Stop.
 
 TANK'S CURRENT STRATEGIC FRAME (6h Chief of Operations briefing):
 "${latestTankReport ? latestTankReport.briefing : 'No Tank report yet — operating without 6h strategic context.'}"
-Tank system assessment: ${latestTankReport ? latestTankReport.systemHealth : 'UNKNOWN'}
+Tank system assessment: ${latestTankReport ? latestTankReport.systemHealth : 'UNKNOWN'} (report age: ${tankReportAgeHrs}h ago)
+Current liquid capital confirmed by Dozer: $${currentLiquidUSD.toFixed(2)}
 Current mission (set by ${settings.missionSetBy || 'Human'}): "${settings.missionDirective || 'No active mission.'}"
+${staleOverrideActive ? `
+⚠️ STALENESS ALERT: Tank's CRITICAL assessment is ${tankReportAgeHrs} hours old. Current liquid is $${currentLiquidUSD.toFixed(2)}, indicating the exchange is online and capital is present. A CRITICAL report from >3 hours ago during a known exchange maintenance window is likely a stale artifact — NOT current system failure. You are AUTHORIZED to issue a cautious-but-active directive based on current conditions rather than enforcing a lockdown from stale data. Do not perpetuate a maintenance-window CRITICAL status. Use the live logs and current capital to make your assessment.` : ''}
 
 TANK OPERATING ENVELOPE (live calibration):
 Aggression Level: ${tankAggressionLevel.toUpperCase()} — ${
@@ -113,7 +127,7 @@ Apply your three-question strategic framework:
 
 If NumNum has blocked many consecutive trades on the same asset, consider whether CIPHER should shift focus elsewhere or hold patiently until price develops.
 
-Your directive must align with Tank's strategic frame above. Do not contradict Tank's assessment.
+Your directive must align with Tank's strategic frame above. Do not contradict Tank's assessment UNLESS the staleness alert above is active — in that case, use current live data to issue an appropriate directive.
 
 Based ONLY on the data above, write a single coachNotes directive for CIPHER.
 Return ONLY the raw directive string. No JSON. No markdown. No explanation. Just the directive.`;
