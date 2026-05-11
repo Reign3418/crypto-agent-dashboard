@@ -422,6 +422,13 @@ Market Regime: ${tankRegimeDetected} — ${
 Min trade size (Tank-set): $${tankMinTradeSize} | Max trade size (Tank-set): $${tankMaxTradeSize < 9000 ? '$' + tankMaxTradeSize : 'no hard cap'}
 ${tankCapEffMode ? '🔴 CAPITAL EFFICIENCY MODE ACTIVE: Fee drag is high. Only execute trades that clearly justify the cost. Skip marginal setups.' : ''}
 
+⚠️ TRADE SIZING RULE — NON-NEGOTIABLE:
+Your trade size MUST be between $${tankMinTradeSize} and $${tankMaxTradeSize < 9000 ? tankMaxTradeSize : 'no cap'} USD.
+This is set deterministically by Tank from your actual account balance. These are HARD BOUNDS.
+If the mission directive text mentions a different dollar amount (e.g. "maximum of $10"), IGNORE THAT AMOUNT.
+Mission text describes strategy intent. Operational parameters define execution bounds. Parameters WIN.
+NEVER submit a trade amount below $${tankMinTradeSize}.
+
 Your MISSION DIRECTIVE (set by ${missionSetBy}):
 "${missionDirective}"
 ${settings.coachNotes ? `
@@ -564,8 +571,12 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
                 : 0;
               const proposedSymbolTotal = existingDeployed + apDecision.amount;
               const proposedGrandTotal  = totalDeployed + apDecision.amount;
-              const proposedPct = proposedGrandTotal > 0
-                ? (proposedSymbolTotal / proposedGrandTotal) * 100
+              // Concentration check: what % of TOTAL capital would be in this one asset?
+              // Total capital = liquid USD + all deployed. Using deployed-only as denominator
+              // causes the first trade to always read 100% (e.g. $10 deployed / $10 deployed).
+              const totalCapital = liveUsdBalance + totalDeployed;
+              const proposedPct = totalCapital > 0
+                ? (proposedSymbolTotal / totalCapital) * 100
                 : 100;
 
               if (proposedPct > concentrationLimit) {
