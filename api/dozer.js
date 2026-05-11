@@ -269,7 +269,7 @@ export async function runDozer() {
   let liquidUSD = 0;
   let openPositionsLive = settings.openPositions || {};
   try {
-    const { getPortfolioBalances } = await import('./trade.js');
+    const { getPortfolioBalances } = await import('../lib/trade.js');
     const balances = await getPortfolioBalances();
     liquidUSD = parseFloat((balances['USD']?.notional || balances['GUSD']?.notional || 0).toFixed(2));
   } catch (e) {
