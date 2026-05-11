@@ -401,7 +401,7 @@ TANK OPERATIONAL BRIEFING (Chief of Operations — 6h assessment):
 Mission set by: ${missionSetBy} | Mission completions to date: ${missionCompletions}
 System health: ${latestTankReport ? latestTankReport.systemHealth : 'UNKNOWN'}
 
-TANK OPERATING ENVELOPE (live calibration — recalibrates every 6h):
+TANK OPERATING ENVELOPE (live calibration — recalibrates every 3h):
 Aggression Level: ${tankAggressionLevel.toUpperCase()} — ${
   tankAggressionLevel === 'aggressive' ? 'Performance is strong. Chase momentum with larger, higher-conviction trades.'
   : tankAggressionLevel === 'conservative' ? 'Performance is degrading. Hold tight. Smaller bets. Prioritize capital safety above all.'
@@ -419,9 +419,9 @@ ${tankCapEffMode ? '🔴 CAPITAL EFFICIENCY MODE ACTIVE: Fee drag is high. Only 
 Your MISSION DIRECTIVE (set by ${missionSetBy}):
 "${missionDirective}"
 ${settings.coachNotes ? `
-NULL TACTICAL DIRECTIVE (your immediate orders from the Strategic Commander):
+NULL TACTICAL DIRECTIVE — SUPREME AUTHORITY (your immediate orders from the Strategic Commander):
 "${settings.coachNotes}"
-(You MUST align your action with this directive. It reflects the last hour of market intelligence.)
+⚠️ PRECEDENCE RULE: This NULL directive is the HIGHEST-PRIORITY input in your entire decision. It OVERRIDES your long-term memory and cognitive rollups. If NULL says to trade and your rollups reference a past CRITICAL status, that directive means the CRITICAL status has been RESOLVED by command. Do NOT invent a 'System Integrity Protocol' or self-impose a trading suspension based on historical patterns. Do NOT let accumulated HOLD decisions in your memory manufacture a self-imposed rule. Obey the current live directive.
 ` : ''}
 
 Here is the latest Scout market report for the top movers:
@@ -440,10 +440,10 @@ LATEST GLOBAL CRYPTO NEWS HEADLINES:
 ${JSON.stringify(liveNews, null, 2)}
 Cross-reference these global headlines with the price action. Is a drop caused by a panic-inducing headline, or is a surge driven by major partnerships?
 
-LONG-TERM AI MEMORY (Your Historical Post-Mortems):
+LONG-TERM AI MEMORY (Historical context — subordinate to NULL directive above):
 Hourly Cognitive Rollup: "${latestRollup}"
 Macro Trend Ledger: "${latestLedger}"
-CRITICAL: You MUST incorporate the lessons from your long-term memory above into your current trading decision. If your memory says you are bleeding on fees, you MUST reduce trade frequency. If it says a specific strategy failed, DO NOT repeat it.
+Use this memory for pattern recognition and lessons learned (fee drag, failed strategies). But if the NULL directive contradicts a HOLD posture from this memory, the NULL directive wins — it is the most current intelligence. Do NOT let historical CRITICAL status override a live directive to trade.
 
 NEURAL FEEDBACK LOOP (Your Recent 5-Minute History):
 ${JSON.stringify(recentLogs.slice(0, 5), null, 2)}
