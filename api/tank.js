@@ -353,6 +353,99 @@ Return ONLY valid JSON (no markdown, no code blocks):
     ? tankOutput.regimeDetected : 'ranging';
   // ── End Calibration ────────────────────────────────────────────────────────────────
 
+  // ── PROTOCOL REVIEW DUTY ───────────────────────────────────────────────────────────
+  // Tank reviews any pending CIPHER protocol proposals every 3h.
+  // Promotes, rejects, or requests more data. Approved protocols become CIPHER hard rules.
+  const existingProtocols = settings.cipherProtocols || [];
+  const pendingProtocols  = existingProtocols.filter(p => p.status === 'pending');
+  const activeProtocols   = existingProtocols.filter(p => p.status === 'active');
+  let updatedProtocols    = [...existingProtocols];
+
+  if (pendingProtocols.length > 0) {
+    try {
+      const reviewPrompt = `You are TANK, Chief of Operations. CIPHER has proposed the following trading protocols based on patterns it observed.
+
+Your job: Review each proposal against the current performance data. Be rigorous. Only approve if the evidence is solid (3+ trades showing a clear pattern). Reject noise or proposals built on too few data points.
+
+CURRENT PERFORMANCE DATA:
+- Win rate: ${winRate !== null ? (winRate * 100).toFixed(1) + '%' : 'unknown'}
+- Fee drag: ${feeDragPct !== null ? feeDragPct.toFixed(1) + '%' : 'unknown'}
+- Total trades this era: ${dozerReport?.totalTrades || 0}
+- System health: ${report.systemHealth}
+- Liquid USD: $${liquidUSD.toFixed(2)}
+
+PENDING PROTOCOLS TO REVIEW:
+${pendingProtocols.map((p, i) => `
+[${i}] ID: ${p.id}
+Rule: "${p.rule}"
+Rationale: ${p.rationale}
+Confidence: ${p.confidence}
+Trade count cited: ${p.tradeCount}
+Proposed: ${p.proposedAt}
+`).join('\n')}
+
+For each protocol, respond with a JSON array. Each entry must have:
+{
+  "id": "<protocol id>",
+  "decision": "APPROVE" | "REJECT" | "NEEDS_MORE_DATA",
+  "reviewNote": "One sentence explaining your decision."
+}
+
+Return ONLY the JSON array. No markdown. No explanation outside the array.`;
+
+      const reviewRes = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: reviewPrompt,
+      });
+
+      let reviewRaw = reviewRes.text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
+      const reviews = JSON.parse(reviewRaw);
+
+      if (Array.isArray(reviews)) {
+        for (const review of reviews) {
+          const idx = updatedProtocols.findIndex(p => p.id === review.id);
+          if (idx === -1) continue;
+
+          const decision = review.decision?.toUpperCase();
+          if (decision === 'APPROVE') {
+            // Enforce max 5 active protocols — archive oldest if needed
+            const currentActive = updatedProtocols.filter(p => p.status === 'active');
+            if (currentActive.length >= 5) {
+              const oldestIdx = updatedProtocols.findIndex(p => p.status === 'active');
+              if (oldestIdx !== -1) updatedProtocols[oldestIdx].status = 'archived';
+            }
+            updatedProtocols[idx] = {
+              ...updatedProtocols[idx],
+              status: 'active',
+              tankReview: review.reviewNote,
+              tankReviewedAt: new Date().toISOString(),
+            };
+            await logAction(`✅ [TANK PROTOCOL APPROVED] "${updatedProtocols[idx].rule}" — ${review.reviewNote}`, true);
+          } else if (decision === 'REJECT') {
+            updatedProtocols[idx] = {
+              ...updatedProtocols[idx],
+              status: 'rejected',
+              tankReview: review.reviewNote,
+              tankReviewedAt: new Date().toISOString(),
+            };
+            await logAction(`❌ [TANK PROTOCOL REJECTED] "${updatedProtocols[idx].rule}" — ${review.reviewNote}`);
+          } else {
+            updatedProtocols[idx] = {
+              ...updatedProtocols[idx],
+              status: 'needs_more_data',
+              tankReview: review.reviewNote,
+              tankReviewedAt: new Date().toISOString(),
+            };
+            await logAction(`⏳ [TANK PROTOCOL DEFERRED] "${updatedProtocols[idx].rule}" — ${review.reviewNote}`);
+          }
+        }
+      }
+    } catch (protoErr) {
+      await logAction(`⚠️ Tank protocol review error: ${protoErr.message}`);
+    }
+  }
+  // ── END PROTOCOL REVIEW ────────────────────────────────────────────────────────────
+
   // ── Write everything to DynamoDB ──────────────────────────────────────────
   await updateSettings({
     tankReports: updatedReports,
@@ -360,6 +453,7 @@ Return ONLY valid JSON (no markdown, no code blocks):
     missionSetBy: 'Tank',
     missionSetAt: now.toISOString(),
     tankMissionLiquidUSD: liquidUSD.toString(), // baseline for auto-recal drift detection
+    cipherProtocols: updatedProtocols,          // reviewed protocol list
     numNumFloor:            numNumFloor.toString(),
     numNumStopLoss:         numNumStopLoss.toString(),
     trailingStopLoss:       trailingStopLoss.toString(),

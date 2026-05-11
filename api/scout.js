@@ -423,6 +423,15 @@ NULL TACTICAL DIRECTIVE — SUPREME AUTHORITY (your immediate orders from the St
 "${settings.coachNotes}"
 ⚠️ PRECEDENCE RULE: This NULL directive is the HIGHEST-PRIORITY input in your entire decision. It OVERRIDES your long-term memory and cognitive rollups. If NULL says to trade and your rollups reference a past CRITICAL status, that directive means the CRITICAL status has been RESOLVED by command. Do NOT invent a 'System Integrity Protocol' or self-impose a trading suspension based on historical patterns. Do NOT let accumulated HOLD decisions in your memory manufacture a self-imposed rule. Obey the current live directive.
 ` : ''}
+${(() => {
+  const activeProtocols = (settings.cipherProtocols || []).filter(p => p.status === 'active');
+  if (activeProtocols.length === 0) return '';
+  return `
+YOUR APPROVED PROTOCOLS (rules you derived from your own experience, validated by Tank):
+${activeProtocols.map((p, i) => `${i + 1}. "${p.rule}" — Tank approved because: ${p.tankReview || 'performance data supported it'}`).join('\n')}
+These are HARD RULES derived from your own trade history. Apply them. Do not override them.
+`;
+})()}
 
 Here is the latest Scout market report for the top movers:
 ${JSON.stringify(reportForStorage, null, 2)}
@@ -461,8 +470,18 @@ Return ONLY a JSON object with this exact structure (no markdown fences, just ra
   "amount": 10.50,  // the USD amount you decide to trade based on your mission
   "fundingSource": "USD", // "USD" or the symbol of an authorized asset to liquidate
   "reasoning": "One sentence explaining why you are making this move. If you use 'complete' or 'fail', explain the outcome.",
-  "optimizationSuggestion": "If decision is 'complete', provide 1 sentence on how the user could optimize the Mission Directive or parameters for better results next time."
+  "optimizationSuggestion": "If decision is 'complete', provide 1 sentence on how the user could optimize the Mission Directive or parameters for better results next time.",
+  "protocolProposal": null
 }
+
+For "protocolProposal": If you have observed a clear, repeatable pattern across 3+ trades that should become a standing rule, propose it here instead of null. Only propose if you have solid evidence. Format:
+{
+  "rule": "One sentence describing the rule precisely.",
+  "rationale": "What pattern you observed and across how many trades.",
+  "confidence": "low" | "medium" | "high",
+  "tradeCount": 4
+}
+Otherwise leave protocolProposal as null.
 
 If you evaluate your Portfolio Balances and determine that you have successfully accomplished your Mission Directive, you MUST return "decision": "complete". Do not stop executing. Provide an optimization suggestion so we can immediately start the next cycle with better context.
 If you evaluate your Portfolio Balances and determine that your Mission Directive has completely failed (e.g., severe drawdown, out of capital, or impossible market conditions), you MUST return "decision": "fail". This will trigger an emergency halt to protect remaining funds.`;
@@ -474,6 +493,39 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
         
         let rawApText = apRes.text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
         const apDecision = JSON.parse(rawApText);
+
+        // ── PROTOCOL PROPOSAL HANDLER ──────────────────────────────────
+        // If CIPHER proposed a protocol this cycle, save it to DB as 'pending'.
+        // Tank will review on its next 3h cycle.
+        if (apDecision.protocolProposal?.rule) {
+          const proposal = apDecision.protocolProposal;
+          const existingProtocols = settings.cipherProtocols || [];
+          // Duplicate prevention: skip if a similar rule (>60% word overlap) already exists
+          const isDuplicate = existingProtocols.some(p => {
+            if (p.status === 'rejected') return false;
+            const existingWords = new Set(p.rule.toLowerCase().split(/\s+/));
+            const newWords = proposal.rule.toLowerCase().split(/\s+/);
+            const overlap = newWords.filter(w => existingWords.has(w)).length;
+            return overlap / newWords.length > 0.6;
+          });
+          if (!isDuplicate) {
+            const newProtocol = {
+              id: `proto_${Date.now()}`,
+              rule: proposal.rule,
+              rationale: proposal.rationale,
+              confidence: proposal.confidence || 'medium',
+              tradeCount: proposal.tradeCount || 0,
+              proposedAt: new Date().toISOString(),
+              status: 'pending',
+              tankReview: null,
+              tankReviewedAt: null,
+            };
+            const updatedProtocols = [newProtocol, ...existingProtocols].slice(0, 20); // cap at 20
+            await updateSettings({ cipherProtocols: updatedProtocols });
+            await logAction(`🧠 [CIPHER PROTOCOL PROPOSED] "${newProtocol.rule}" (Confidence: ${newProtocol.confidence}) — Pending Tank review.`, true);
+          }
+        }
+        // ── END PROTOCOL PROPOSAL HANDLER ─────────────────────────────
         
         if (apDecision.decision === 'buy' || apDecision.decision === 'sell') {
             let buyBlocked = false;

@@ -78,6 +78,8 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   const [overridePct,    setOverridePct]    = useState(75);
   const [overrideAsset,  setOverrideAsset]  = useState('LINK');
   const [overrideExpiry, setOverrideExpiry] = useState('6h');
+  const [cipherProtocols, setCipherProtocols] = useState([]);
+  const [protocolActionLoading, setProtocolActionLoading] = useState(null);
 
   const fetchStrategies = useCallback(async () => {
     try {
@@ -98,6 +100,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
       setMacroLedgers(dataSettings.macroLedgers || []);
       setActivePersona(dataSettings.activePersona || 'CIPHER');
       setActiveEraName(dataSettings.activeEraName || 'Aegis');
+      setCipherProtocols(dataSettings.cipherProtocols || []);
       const co = dataSettings.concentrationOverride || null;
       // Auto-expire if past expiry time
       if (co && co.expiresAt && Date.now() > co.expiresAt) {
@@ -805,6 +808,105 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
                 </div>
               </div>
             )}
+          </div>
+        )}
+      </section>
+
+      {/* Protocol Intelligence Panel */}
+      <section style={{ marginTop: '28px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            🧠 Protocol Intelligence
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 400 }}>CIPHER proposes · Tank approves</span>
+          </h3>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            {cipherProtocols.filter(p => p.status === 'active').length} active &middot; {cipherProtocols.filter(p => p.status === 'pending').length} pending
+          </span>
+        </div>
+
+        {cipherProtocols.length === 0 ? (
+          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', background: 'var(--bg-secondary)', borderRadius: '10px', border: '1px dashed var(--border-subtle)', fontSize: '0.85rem' }}>
+            No protocols yet. CIPHER will propose rules as it observes trade patterns.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {['active', 'pending', 'needs_more_data', 'rejected'].map(status => {
+              const filtered = cipherProtocols.filter(p => p.status === status);
+              if (filtered.length === 0) return null;
+              const meta = {
+                active:          { label: '✅ Active Protocols', color: '#22c55e', bg: 'rgba(34,197,94,0.07)', border: 'rgba(34,197,94,0.22)' },
+                pending:         { label: '⏳ Pending Tank Review', color: '#f59e0b', bg: 'rgba(245,158,11,0.07)', border: 'rgba(245,158,11,0.22)' },
+                needs_more_data: { label: '🔍 Needs More Data', color: '#60a5fa', bg: 'rgba(96,165,250,0.07)', border: 'rgba(96,165,250,0.22)' },
+                rejected:        { label: '❌ Rejected', color: '#6b7280', bg: 'rgba(107,114,128,0.05)', border: 'rgba(107,114,128,0.15)' },
+              }[status];
+              return (
+                <div key={status}>
+                  <div style={{ fontSize: '0.72rem', color: meta.color, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>{meta.label}</div>
+                  {filtered.map(proto => (
+                    <div key={proto.id} style={{ background: meta.bg, border: `1px solid ${meta.border}`, borderRadius: '10px', padding: '14px 16px', marginBottom: '8px' }}>
+                      <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: 600, marginBottom: '5px' }}>"{proto.rule}"</div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '10px' }}>{proto.rationale}</div>
+                      <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.71rem', color: meta.color, background: meta.border, padding: '2px 8px', borderRadius: '999px' }}>
+                          {(proto.confidence || 'medium').toUpperCase()} · {proto.tradeCount || '?'} trades
+                        </span>
+                        <span style={{ fontSize: '0.71rem', color: 'var(--text-muted)' }}>{timeAgo(proto.proposedAt)}</span>
+                        {proto.tankReview && (
+                          <span style={{ fontSize: '0.71rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Tank: "{proto.tankReview}"</span>
+                        )}
+                        <div style={{ marginLeft: 'auto', display: 'flex', gap: '6px' }}>
+                          {(status === 'pending' || status === 'needs_more_data' || status === 'rejected') && (
+                            <button
+                              disabled={protocolActionLoading === proto.id}
+                              onClick={async () => {
+                                setProtocolActionLoading(proto.id);
+                                const updated = cipherProtocols.map(p => p.id === proto.id
+                                  ? { ...p, status: 'active', tankReview: 'Manually promoted by operator', tankReviewedAt: new Date().toISOString() }
+                                  : p);
+                                await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cipherProtocols: updated }) });
+                                setCipherProtocols(updated);
+                                setProtocolActionLoading(null);
+                              }}
+                              style={{ fontSize: '0.71rem', padding: '3px 10px', borderRadius: '6px', background: 'rgba(34,197,94,0.14)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', cursor: 'pointer' }}
+                            >Promote</button>
+                          )}
+                          {status === 'active' && (
+                            <button
+                              disabled={protocolActionLoading === proto.id}
+                              onClick={async () => {
+                                setProtocolActionLoading(proto.id);
+                                const updated = cipherProtocols.map(p => p.id === proto.id
+                                  ? { ...p, status: 'rejected', tankReview: 'Manually revoked by operator', tankReviewedAt: new Date().toISOString() }
+                                  : p);
+                                await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cipherProtocols: updated }) });
+                                setCipherProtocols(updated);
+                                setProtocolActionLoading(null);
+                              }}
+                              style={{ fontSize: '0.71rem', padding: '3px 10px', borderRadius: '6px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444', cursor: 'pointer' }}
+                            >Revoke</button>
+                          )}
+                          {status === 'rejected' && (
+                            <button
+                              disabled={protocolActionLoading === proto.id}
+                              onClick={async () => {
+                                setProtocolActionLoading(proto.id);
+                                const updated = cipherProtocols.map(p => p.id === proto.id
+                                  ? { ...p, status: 'pending', tankReview: null, tankReviewedAt: null }
+                                  : p);
+                                await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cipherProtocols: updated }) });
+                                setCipherProtocols(updated);
+                                setProtocolActionLoading(null);
+                              }}
+                              style={{ fontSize: '0.71rem', padding: '3px 10px', borderRadius: '6px', background: 'rgba(96,165,250,0.12)', border: '1px solid rgba(96,165,250,0.25)', color: '#60a5fa', cursor: 'pointer' }}
+                            >Re-evaluate</button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </section>
