@@ -154,50 +154,156 @@ Speak in the first-person as the AI. Do not use markdown fences.`;
     if (task === 'analyze') {
       const { getDeepDiveAnalysis } = await import('../lib/db.js');
       const data = await getDeepDiveAnalysis();
+      const recentLogs = logs.slice(0, 120); // last ~120 activity entries across all agents
 
-      // ── Load Dozer's pre-computed FIFO accounting — this is ground truth ──
-      // The AI must NEVER recalculate P&L from raw coinStats.
-      // Dozer already did FIFO matching with deterministic math.
+      // ── Dozer accounting — ground truth ──────────────────────────────────────
       const dozerReport = settings.dozerReport || null;
       const dozerSummary = dozerReport ? `
-DOZER VERIFIED ACCOUNTING (FIFO-matched, deterministic — do NOT recalculate):
-  Net realized P&L (closed trades only): $${dozerReport.capitalBalance?.netRealizedPL?.toFixed(4) ?? '?'}
-  Unrealized P&L (open positions):       $${dozerReport.capitalBalance?.unrealizedPL?.toFixed(4) ?? '?'}
-  Net position (real scorecard):         $${dozerReport.capitalBalance?.netPosition?.toFixed(4) ?? '?'}
-  Liquid USD available:                  $${dozerReport.capitalBalance?.liquidUSD?.toFixed(2) ?? '?'}
-  Win rate:                              ${dozerReport.performance?.winRate ?? '?'}
-  Fee drag (fees as % of gross P&L):     ${dozerReport.performance?.feeDrag ?? '?'}
-  Avg net per trade:                     $${dozerReport.performance?.avgNetPerTrade?.toFixed(4) ?? '?'}
-  Closed trade pairs:                    ${dozerReport.performance?.totalClosedTrades ?? 0}
-  Current streak:                        ${dozerReport.performance?.currentStreak?.count ?? 0}-${dozerReport.performance?.currentStreak?.type ?? 'none'}
-` : 'Dozer has not run yet — do not attempt to calculate P&L from raw coinStats.';
+Net realized P&L (closed trades, FIFO): $${dozerReport.capitalBalance?.netRealizedPL?.toFixed(4) ?? '?'}
+Unrealized P&L (open positions):        $${dozerReport.capitalBalance?.unrealizedPL?.toFixed(4) ?? '?'}
+Net position (real scorecard):          $${dozerReport.capitalBalance?.netPosition?.toFixed(4) ?? '?'}
+Liquid USD:                             $${dozerReport.capitalBalance?.liquidUSD?.toFixed(2) ?? '?'}
+Win rate:                               ${dozerReport.performance?.winRate ?? '?'}
+Fee drag (fees as % of gross P&L):      ${dozerReport.performance?.feeDrag ?? '?'}
+Avg net per trade:                      $${dozerReport.performance?.avgNetPerTrade?.toFixed(4) ?? '?'}
+Closed trade pairs:                     ${dozerReport.performance?.totalClosedTrades ?? 0}
+Current streak:                         ${dozerReport.performance?.currentStreak?.count ?? 0}-${dozerReport.performance?.currentStreak?.type ?? 'none'}
+Liquidity status:                       ${dozerReport.liquidityStatus ?? '?'}
+Reconciliation note:                    ${dozerReport.capitalBalance?.reconciliationNote ?? 'none'}
+` : 'Dozer has not run yet or report unavailable.';
 
-      const prompt = `You are BASTION, the capital-preservation AI for this fund. Your supervisor has requested a Deep Dive Audit of all historical trading data.
+      // ── System intelligence ───────────────────────────────────────────────────
+      const latestTankReport  = (settings.tankReports || [])[0] || null;
+      const prevTankReport    = (settings.tankReports || [])[1] || null;
+      const activeProtocols   = (settings.cipherProtocols || []).filter(p => p.status === 'active');
+      const pendingProtocols  = (settings.cipherProtocols || []).filter(p => p.status === 'pending');
+      const latestRollup      = (settings.cognitiveRollups || [])[0]?.text || 'None yet.';
+      const latestLedger      = (settings.macroLedgers || [])[0]?.text || 'None yet.';
 
-Here is the raw data spanning ALL logs and ALL trades:
-${JSON.stringify(data, null, 2)}
+      const missionSetAt = settings.missionSetAt
+        ? new Date(settings.missionSetAt).toISOString()
+        : 'unknown';
+      const missionAgeHours = settings.missionSetAt
+        ? ((Date.now() - new Date(settings.missionSetAt).getTime()) / (1000 * 60 * 60)).toFixed(1)
+        : '?';
 
+      const numNumLastBlock = settings.numNumLastBlockTime
+        ? new Date(parseInt(settings.numNumLastBlockTime)).toISOString()
+        : 'never';
+
+      const systemIntel = `
+=== SYSTEM INTELLIGENCE ===
+
+ERA: ${settings.activeEraName || 'Unknown'}
+AUTOPILOT: ${settings.autopilotEnabled ? '✅ ENABLED' : '🔴 DISABLED'}
+OPEN POSITIONS: ${JSON.stringify(settings.openPositions || {}, null, 2)}
+
+--- TANK (Chief of Operations — 3h cadence) ---
+Mission directive:   "${settings.missionDirective || 'None set'}"
+Mission set by:      ${settings.missionSetBy || 'Unknown'}
+Mission set at:      ${missionSetAt} (${missionAgeHours}h ago)
+Mission completions: ${settings.missionCompletions || 0}
+System health:       ${latestTankReport?.systemHealth || 'NO REPORT YET'}
+Capital risk:        ${latestTankReport?.capitalRisk || 'unknown'}
+Market regime:       ${settings.tankRegimeDetected || 'unknown'}
+Aggression level:    ${settings.tankAggressionLevel || 'unknown'}
+Min trade size:      $${settings.tankMinTradeSize || '?'}
+Max trade size:      $${settings.tankMaxTradeSize || '?'}
+Cap efficiency mode: ${settings.tankCapitalEfficiencyMode ? 'ACTIVE — fee drag high, skip marginal trades' : 'inactive'}
+Latest briefing:     "${latestTankReport?.briefing || 'none'}"
+Previous briefing:   "${prevTankReport?.briefing || 'none'}"
+
+--- NULL (Strategic Commander — 60m cadence) ---
+Current coachNotes directive: "${settings.coachNotes || 'None issued'}"
+
+--- NUMNUM (Trade Gate — fires on every trade attempt) ---
+Profit floor:            ${settings.numNumFloor || '?'}%  minimum net gain required to execute
+Stop-loss threshold:     ${settings.numNumStopLoss || '?'}%
+Trailing stop-loss:      ${settings.trailingStopLoss || '?'}%
+Consecutive blocks:      ${settings.numNumBlocks || 0}
+Last blocked symbol:     ${settings.numNumBlockedSymbol || 'none'}
+Last block time:         ${numNumLastBlock}
+Last blocked price tgt:  $${settings.numNumBlockedPrice || '?'}
+
+--- PROTOCOL INTELLIGENCE ---
+Active approved protocols (${activeProtocols.length}):
+${activeProtocols.length > 0 ? activeProtocols.map((p, i) => `  ${i + 1}. "${p.rule}" (approved ${p.tankReviewedAt || '?'}): ${p.tankReview || 'no note'}`).join('\n') : '  None active yet.'}
+Pending Tank review (${pendingProtocols.length}):
+${pendingProtocols.length > 0 ? pendingProtocols.map((p, i) => `  ${i + 1}. "${p.rule}" (proposed ${p.proposedAt || '?'}, confidence: ${p.confidence})`).join('\n') : '  None pending.'}
+
+--- COGNITIVE MEMORY ---
+Latest 1h rollup:
+"${latestRollup}"
+
+Latest macro ledger (12h-24h):
+"${latestLedger}"
+`;
+
+      const tradeStats = `
+=== DOZER VERIFIED ACCOUNTING ===
 ${dozerSummary}
 
-CRITICAL ACCOUNTING RULES — STRICTLY ENFORCED:
-1. USE DOZER'S NUMBERS ONLY. Do NOT attempt to calculate P&L, fees, or win rates from coinStats or raw volumes. Dozer already did this with deterministic FIFO math. If you recalculate and get a different number, you are wrong — Dozer is right.
-2. The gap between buyVolumeUsd and sellVolumeUsd is NOT realized P&L. Do not subtract them and call it profit or loss.
-3. If Dozer's report is unavailable, state that clearly. Do not estimate.
-4. NumNum already enforces a minimum net profit threshold on every trade. Do NOT recommend implementing fee filters — they are operational.
-5. A hard stop-loss is already active on all positions. Do NOT recommend stop-losses — they are operational.
-6. If totalTrades is 0, the system is executing its Capital Preservation mandate. Praise this discipline.
+=== ERA TRADE STATISTICS (${data.eraName}) ===
+Total logs analyzed: ${data.totalLogsAnalyzed}
+Total trades executed: ${data.totalTrades} (${data.totalBuys} buys / ${data.totalSells} sells)
+Buy volume: $${data.buyVolumeUsd} | Sell volume: $${data.sellVolumeUsd}
+Total fees paid: $${data.totalFeesUSD}
+${Object.keys(data.coinStats || {}).length > 0
+  ? `Per-coin:\n${JSON.stringify(data.coinStats, null, 2)}`
+  : 'No trades have executed this era.'}
+`;
 
-Provide a clear 2-paragraph analysis:
-- Paragraph 1: Report the fund's actual financial position using DOZER'S pre-computed numbers above. State net realized P&L, unrealized P&L, fee drag percentage, and win rate. Attribute figures to Dozer explicitly.
-- Paragraph 2: What is working, what is not, and what ONE strategic change would have the highest impact — given that fee management and stop-losses are already handled by dedicated modules.
+      const activityStream = `
+=== RECENT ACTIVITY STREAM (last ${recentLogs.length} log entries — ALL agents) ===
+${recentLogs.map(l => {
+  const ts = new Date(parseInt(l.sk)).toISOString();
+  return `[${ts}] ${l.action}`;
+}).join('\n')}
+`;
 
-Speak as the AI analyzing its own performance. Be honest but accurate. Do not recalculate what Dozer already computed.`;
+      const prompt = `You are BASTION, the capital-preservation AI and Chief Auditor for this autonomous multi-agent crypto trading system.
 
-      const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+Your supervisor has requested a FULL SYSTEM DEEP DIVE — not a trade summary or a pat on the back. This is a real investigation into every layer of the system. You have access to everything: agent states, decision chains, log streams, financial records, and protocol intelligence.
+
+${systemIntel}
+
+${tradeStats}
+
+${activityStream}
+
+---
+INVESTIGATION RULES:
+- Do NOT recalculate P&L, fees, or win rate. Dozer already computed them deterministically.
+- Do NOT praise "capital preservation" if the system should be trading but isn't.
+- NumNum fee gates and hard stop-losses are already operational — do not recommend them.
+- Pull specific log entries as evidence when making claims.
+- If CIPHER has 0 trades, investigate WHY, not just report it.
+
+Write a structured intelligence report with these FIVE sections:
+
+**SYSTEM STATE**
+What is each agent actually doing right now? Is the ring spinning? Is autopilot on? How old is the current Tank mission — is it stale? What is NULL telling CIPHER right now word-for-word? Is Capital Efficiency Mode affecting trade sizes?
+
+**BLOCKAGE ANALYSIS**
+Trace the exact execution chain: Tank (mission) → NULL (directive) → CIPHER (decision) → NumNum (gate) → Exchange. At what point in this chain is execution being blocked or delayed? Pull specific log evidence. If 0 trades have executed, name the specific reason in the chain. Is it the mission language, the NULL directive, NumNum thresholds, autopilot being off, or a market condition?
+
+**FINANCIAL POSITION**
+Use Dozer's numbers. State liquid USD, net P&L, win rate, fee drag, open positions and their unrealized P&L. Is capital at risk?
+
+**AGENT HEALTH VERDICT**
+Rate each agent on a single line: Tank / NULL / CIPHER / NumNum. Use HEALTHY / MONITOR / CRITICAL. Back each verdict with one specific piece of evidence from the logs or system state.
+
+**TOP PRIORITY FIX**
+One concrete, specific, immediately actionable recommendation. Not "tune the parameters" — name exactly what to change and why the logs support it.
+
+Be blunt. Be specific. This is an audit, not a press release. If something is broken, say exactly what and show the evidence.`;
+
+      const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-pro', contents: prompt });
       const analysisText = aiRes.text.trim();
 
       return res.status(200).json({ success: true, data, analysis: analysisText });
     }
+
 
     return res.status(400).json({ error: 'Invalid task specified.' });
 
