@@ -273,7 +273,15 @@ export async function runDozer() {
     const balances = await getPortfolioBalances();
     liquidUSD = parseFloat((balances['USD']?.notional || balances['GUSD']?.notional || 0).toFixed(2));
   } catch (e) {
-    // non-fatal — use 0 if exchange unreachable
+    // Non-fatal — preserve last known good balance rather than zeroing out.
+    // Silently zeroing to $0 causes Tank to issue HOLD missions on a perfectly-funded account.
+    const lastKnown = settings.dozerReport?.capitalBalance?.liquidUSD;
+    if (lastKnown && lastKnown > 0) {
+      liquidUSD = parseFloat(lastKnown);
+      await logAction(`⚠️ [DOZER] Exchange API error — using last known liquidUSD: $${liquidUSD.toFixed(2)}. Error: ${e.message}`, true);
+    } else {
+      await logAction(`⚠️ [DOZER] Exchange API error and no prior balance on record. LiquidUSD: $0. Error: ${e.message}`, true);
+    }
   }
 
   // 6. Capital balance

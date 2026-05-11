@@ -374,6 +374,12 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
         const balances = await getPortfolioBalances().catch(() => ({}));
         const liquidatable = settings.liquidatableAssets || [];
 
+        // Compute live USD from exchange — this is the authoritative capital figure
+        const liveUsdBalance = parseFloat(
+          (balances['USD']?.notional || balances['GUSD']?.notional || 0).toFixed(2)
+        );
+        const dozerLiquidUSD = parseFloat((settings.dozerReport?.capitalBalance?.liquidUSD || 0).toFixed(2));
+
         const missionDirective = settings.missionDirective || 'Protect capital and execute disciplined trades.';
         const missionSetBy = settings.missionSetBy || 'Human';
         const missionSetAt = settings.missionSetAt || 'unknown';
@@ -436,8 +442,17 @@ These are HARD RULES derived from your own trade history. Apply them. Do not ove
 Here is the latest Scout market report for the top movers:
 ${JSON.stringify(reportForStorage, null, 2)}
 
-Your current Portfolio Balances (Available Capital):
+Your current Portfolio Balances (Available Capital) — THIS IS GROUND TRUTH:
 ${JSON.stringify(balances, null, 2)}
+
+⚠️ CAPITAL RECONCILIATION RULE — NON-NEGOTIABLE:
+Your live portfolio above shows $${liveUsdBalance.toFixed(2)} USD available from the exchange directly.
+Dozer's reported liquid USD is $${dozerLiquidUSD.toFixed(2)}.
+If these differ, it is because Dozer only tracks capital that flowed through system-executed trades.
+In a fresh era with no system trades yet, Dozer always starts at $0 regardless of actual exchange balance.
+YOUR ACTUAL DEPLOYABLE CAPITAL IS: $${liveUsdBalance.toFixed(2)}
+Do NOT treat a Dozer vs. portfolio discrepancy as a "data conflict." It is NOT a conflict. It is expected.
+Do NOT enter a HOLD state because of this discrepancy. If your live portfolio shows USD > $15, you have capital. Trade.
 
 ACTIVE COST-BASIS MEMORY (What you paid for your current holdings):
 ${JSON.stringify(settings.openPositions || {}, null, 2)}
