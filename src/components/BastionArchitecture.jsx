@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 const TIP = {
   tank: {
     title: 'TANK — Chief of Operations',
-    body: 'Runs every 12 hours. Reads Dozer\'s verified FIFO P&L, win rate, and fee drag, then uses deterministic rules to set NumNum\'s profit floor and stop-loss threshold. Also issues the mission directive that guides NULL. No hallucinations — calibration math is pure arithmetic, not AI.',
+    body: 'Runs every 3 hours. Reads Dozer\'s verified FIFO P&L, win rate, and fee drag, then uses deterministic rules to set NumNum\'s profit floor and stop-loss threshold. Also issues the mission directive that guides NULL. No hallucinations — calibration math is pure arithmetic, not AI.',
   },
   null: {
     title: 'NULL — Strategic Commander',
@@ -31,7 +31,7 @@ const TIP = {
   },
   dozer: {
     title: 'DOZER — Chief Accounting Officer',
-    body: 'Runs every 15 minutes. No AI — pure deterministic math. FIFO-matches every buy to its corresponding sell. Computes realized P&L, win rate, fee drag, current streak, and concentration risk per asset. Writes dozerReport to DynamoDB. Tank reads this report every 12h to calibrate NumNum.',
+    body: 'Runs every 15 minutes. No AI — pure deterministic math. FIFO-matches every buy to its corresponding sell. Computes realized P&L, win rate, fee drag, current streak, and concentration risk per asset. Writes dozerReport to DynamoDB. Tank reads this report every 3h to calibrate NumNum.',
   },
   bastionai: {
     title: 'CIPHER AUDIT — Deep Dive Auditor',

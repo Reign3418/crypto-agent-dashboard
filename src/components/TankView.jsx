@@ -160,7 +160,7 @@ export default function TankView() {
   // Compute next run time from latest report
   const nextRunLabel = latest?.nextRunAt
     ? new Date(latest.nextRunAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })
-    : '~12h from last run';
+    : '~3h from last run';
 
   const sysStatus = latest?.systemHealth || 'AWAITING FIRST REPORT';
   const sysColor  = HEALTH_COLOR[sysStatus] || '#6b7280';
@@ -199,7 +199,7 @@ export default function TankView() {
             <span style={{ color: '#6b7280', fontSize: '0.78rem' }}>Chief of Operations</span>
           </div>
           <div style={{ fontSize: '0.72rem', color: '#4b5563' }}>
-            Next report: {nextRunLabel} &nbsp;·&nbsp; Runs every 12 hours
+            Next report: {nextRunLabel} &nbsp;·&nbsp; Runs every 3 hours
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -223,7 +223,7 @@ export default function TankView() {
           <div style={{ fontSize: '1.5rem', marginBottom: '8px' }}>🎯</div>
           <div style={{ fontWeight: 700, marginBottom: '4px' }}>Tank is standing by</div>
           <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>
-            First report generates at the next 12-hour cron trigger.
+            First report generates at the next 3-hour cron trigger.
           </div>
         </div>
       )}
