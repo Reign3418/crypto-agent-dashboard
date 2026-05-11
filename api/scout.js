@@ -480,10 +480,18 @@ NEURAL FEEDBACK LOOP (Your Recent 5-Minute History):
 ${JSON.stringify(recentLogs.slice(0, 5), null, 2)}
 Review your recent Neural Feed logs above. If you see recent trade errors or failures, you MUST learn from them and adapt your strategy. Do not repeat failed actions.
 
-Analyze this data and your mission directive. You have full discretion over trade sizing. You may choose to trade any asset or HOLD.
+Analyze this data and your mission directive. You may choose to trade any asset or HOLD.
 If you want to BUY an asset but your USD balance is low, you MAY choose to liquidate a permitted asset. 
 To do this, set "fundingSource" to the symbol of the authorized asset you want to sell to fund this buy (e.g., "ETH"). You can ONLY use assets listed in the authorized list above.
 If you have enough USD or are just doing a normal SELL, set "fundingSource" to "USD".
+
+⚠️ MISSION COMPLETION RULE — NON-NEGOTIABLE:
+"complete" (MISSION ACCOMPLISHED) means the mission's PRIMARY OBJECTIVE was achieved by a NEW action in this cycle.
+Simply holding an existing open position does NOT satisfy any mission objective. It is not a trade. It is not a result.
+If the mission says "execute a trade" → MISSION COMPLETE only after a brand new BUY or SELL is CONFIRMED in this cycle.
+If the mission says "achieve a profitable closed trade pair" → MISSION COMPLETE only after a position is fully SOLD at a profit.
+If NULL says "maintain your LTC position" alongside a mission to execute trades, that is NOT permission to declare MISSION ACCOMPLISHED. NULL is telling you to hold your existing position WHILE STILL pursuing the mission.
+NEVER declare "complete" solely because you have an open position that was placed in a prior cycle.
 
 Return ONLY a JSON object with this exact structure (no markdown fences, just raw JSON):
 {

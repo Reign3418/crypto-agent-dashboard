@@ -62,7 +62,21 @@ export async function runTank() {
   const hour = now.getUTCHours();
   const period = hour >= 6 && hour < 18 ? 'AM' : 'PM';
 
-  // ── Tank AI Prompt ────────────────────────────────────────────────────────
+  // ── Pre-compute trade sizing BEFORE calling the AI so the prompt contains
+  // the real bounds. This prevents Tank's mission text from ever contradicting
+  // the deterministic parameters (the '$10 max vs $15 min' bug).
+  const liquidForSizing = dozerReport?.capitalBalance?.liquidUSD || 0;
+  let preMinTradeSize;
+  if (liquidForSizing >= 750)      preMinTradeSize = 50;
+  else if (liquidForSizing >= 300) preMinTradeSize = 35;
+  else if (liquidForSizing >= 100) preMinTradeSize = 20;
+  else                             preMinTradeSize = 15;
+  preMinTradeSize = Math.min(Math.max(preMinTradeSize, 15), 75);
+  const preMaxTradeSize = Math.min(
+    Math.max(liquidForSizing * 0.15, preMinTradeSize),
+    Math.max(liquidForSizing * 0.35, preMinTradeSize)
+  );
+
   const tankPrompt = `You are TANK, the Chief of Operations for CIPHER — an autonomous multi-agent crypto trading system.
 
 Your identity: You are named after Tank from The Matrix — the operator who never goes into the simulation but sees every feed, knows where every agent is, and keeps the mission viable.
@@ -151,11 +165,20 @@ AGENT HEALTH ASSESSMENT GUIDE:
 MISSION DIRECTIVE RULES:
 - You own the mission directive. The human does NOT set it anymore. You do.
 - Your ONLY capital rule: PROTECT CAPITAL. Never set a goal that requires gambling.
-- CRITICAL CAPITAL RULE: You have $${(dozerReport?.capitalBalance?.liquidUSD || 0).toFixed(2)} USD liquid. Do NOT set a mission that requires deploying more capital than this amount. If liquid < $15, your mission MUST be about managing EXISTING open positions (monitoring exits, protecting the LINK position, etc). You CANNOT instruct CIPHER to wait for a capital injection — that is not your decision to make.
+- CRITICAL CAPITAL RULE: You have $${(dozerReport?.capitalBalance?.liquidUSD || 0).toFixed(2)} USD liquid. Do NOT set a mission that requires deploying more capital than this amount. If liquid < $15, your mission MUST be about managing EXISTING open positions (monitoring exits, protecting open positions, etc). You CANNOT instruct CIPHER to wait for a capital injection — that is not your decision to make.
 - Base the goal on DEMONSTRATED PACE. If the system has made X trades in Y days with Z average net, set a goal achievable at that pace with moderate ambition (pace × 1.5 is reasonable).
 - The goal must be specific enough for CIPHER to evaluate completion. Good: "Achieve 3 profitable closed trades with net positive P&L over 7 days." Bad: "Make money."
 - If the current mission has never been completed and has been running for >3 days, you MUST set a new, more achievable mission.
 - If the system is performing well, raise the bar modestly. Never more than 2x demonstrated pace.
+
+⚠️ TRADE SIZE GUARDRAIL — CRITICAL:
+The system enforces HARD trade size bounds computed from Dozer's verified capital:
+  Min trade size: $${preMinTradeSize}
+  Max trade size: $${Math.round(preMaxTradeSize)}
+Do NOT write a mission directive that mentions ANY dollar amount outside these bounds.
+Do NOT say "maximum of $10" if the minimum is $${preMinTradeSize}. That is an impossible instruction.
+If you want to describe trade size in the mission, say "execute a trade within the system's standard trade size parameters" — never hard-code a number.
+Do NOT make the mission completion condition be "execute one trade" — CIPHER will declare success the moment it opens any position. Instead use: "achieve one profitable closed trade pair" or "close at least one position with a positive net P&L."
 
 ⚠️ MISSION LANGUAGE GUARDRAIL — READ THIS FIRST:
 The cognitive rollup and previous reports may contain phrases like "System Integrity Protocol", "zero data conflicts", or "HOLD posture until conditions are met". These are STALE MAINTENANCE-WINDOW ARTIFACTS from a Gemini Exchange outage. They are NOT real operational conditions.
