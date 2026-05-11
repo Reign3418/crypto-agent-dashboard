@@ -111,12 +111,20 @@ export default async function handler(req, res) {
             : currentLiquid > 0 ? 100 : 0;
 
           // Trigger conditions:
-          //   1. Capital changed >30% since mission was set
+          //   1. Capital changed >30% AND >$5 absolute (prevent dust fluctuations)
           //   2. Tank hasn't run in the last 30 minutes (prevent storm)
           //   3. We have budget left in this cron window
-          if (liquidChangePct > 30 && minSinceLastTank > 30 && timeLeft() > 30000) {
+          //   4. GUARD: currentLiquid > 0 — exchange API returning $0 during
+          //      maintenance is an outage, NOT real capital loss. Never let an
+          //      exchange blackout trigger a false mission reset.
+          const absoluteChange = Math.abs(currentLiquid - missionLiquid);
+          if (currentLiquid === 0 && missionLiquid > 5) {
             await logAction(
-              `⚡ [AUTO-RECAL] Liquid changed ${liquidChangePct.toFixed(0)}% since mission set ($${missionLiquid.toFixed(2)} → $${currentLiquid.toFixed(2)}). Auto-triggering Tank recalibration.`,
+              `⚠️ [AUTO-RECAL] Exchange returned $0.00 liquid (was $${missionLiquid.toFixed(2)}). Possible exchange outage — skipping recalibration to avoid false mission reset.`
+            );
+          } else if (liquidChangePct > 30 && absoluteChange > 5 && minSinceLastTank > 30 && timeLeft() > 30000) {
+            await logAction(
+              `⚡ [AUTO-RECAL] Liquid changed ${liquidChangePct.toFixed(0)}% ($${absoluteChange.toFixed(2)}) since mission set ($${missionLiquid.toFixed(2)} → $${currentLiquid.toFixed(2)}). Auto-triggering Tank recalibration.`,
               true
             );
             const { runTank } = await import('./tank.js');
