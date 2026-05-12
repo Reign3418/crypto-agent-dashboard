@@ -234,13 +234,17 @@ function buildConcentrationRisk(openPositions) {
   const positions = Object.entries(openPositions || {});
   if (positions.length === 0) return {};
 
-  const totalDeployed = positions.reduce((s, [, p]) => s + (p.costBasisUsd || 0), 0);
-  const risk = {};
+  // costBasisUsd is computed here from stored amount*buyPrice.
+  // trade.js does NOT write a costBasisUsd field — it only writes amount + buyPrice.
+  const totalDeployed = positions.reduce((s, [, pos]) =>
+    s + (parseFloat(pos.amount || 0) * parseFloat(pos.buyPrice || 0)), 0);
 
+  const risk = {};
   for (const [sym, pos] of positions) {
-    const pct = totalDeployed > 0 ? (pos.costBasisUsd / totalDeployed) * 100 : 0;
+    const costBasis = parseFloat(pos.amount || 0) * parseFloat(pos.buyPrice || 0);
+    const pct = totalDeployed > 0 ? (costBasis / totalDeployed) * 100 : 0;
     risk[sym] = {
-      costBasis: parseFloat((pos.costBasisUsd || 0).toFixed(2)),
+      costBasis: parseFloat(costBasis.toFixed(2)),
       pct:       parseFloat(pct.toFixed(1)),
       status:    pct > 70 ? 'HIGH' : pct > 50 ? 'ELEVATED' : 'OK',
     };
@@ -267,10 +271,11 @@ export async function runDozer() {
 
   // 5. Live balances for liquid USD and open position values
   let liquidUSD = 0;
+  let balances = {};
   let openPositionsLive = settings.openPositions || {};
   try {
     const { getPortfolioBalances } = await import('../lib/trade.js');
-    const balances = await getPortfolioBalances();
+    balances = await getPortfolioBalances();
     liquidUSD = parseFloat((balances['USD']?.notional || balances['GUSD']?.notional || 0).toFixed(2));
   } catch (e) {
     // Non-fatal — preserve last known good balance rather than zeroing out.
@@ -285,8 +290,24 @@ export async function runDozer() {
   }
 
   // 6. Capital balance
-  const totalDeployed    = Object.values(openPositionsLive).reduce((s, p) => s + (p.costBasisUsd || 0), 0);
-  const totalUnrealized  = Object.values(openPositionsLive).reduce((s, p) => s + (p.unrealizedPlUsd || 0), 0);
+  // NOTE: trade.js stores { amount, buyPrice, highWaterMark, timestamp } per position.
+  // It does NOT store costBasisUsd or unrealizedPlUsd — those must be computed here.
+  const totalDeployed = Object.values(openPositionsLive).reduce(
+    (s, p) => s + (parseFloat(p.amount || 0) * parseFloat(p.buyPrice || 0)), 0
+  );
+
+  // Compute unrealized PL from live exchange notional values (fetched above in balances).
+  // For each open position: unrealizedPL = current_market_value - cost_basis
+  let totalUnrealized = 0;
+  for (const [sym, pos] of Object.entries(openPositionsLive)) {
+    const costBasis = parseFloat(pos.amount || 0) * parseFloat(pos.buyPrice || 0);
+    // balances may be empty if exchange API failed — fall back to 0 unrealized.
+    const liveNotional = parseFloat(
+      (balances[sym.toUpperCase()]?.notional) || 0
+    );
+    totalUnrealized += liveNotional > 0 ? liveNotional - costBasis : 0;
+  }
+
   const totalFees        = trades.reduce((s, t) => s + t.fee, 0);
   const externalValue    = externalSells.reduce((s, e) => s + e.usdValue, 0);
 

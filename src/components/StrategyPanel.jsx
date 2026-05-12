@@ -870,6 +870,21 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
                               style={{ fontSize: '0.71rem', padding: '3px 10px', borderRadius: '6px', background: 'rgba(34,197,94,0.14)', border: '1px solid rgba(34,197,94,0.3)', color: '#22c55e', cursor: 'pointer' }}
                             >Promote</button>
                           )}
+                          {(status === 'pending' || status === 'needs_more_data') && (
+                            <button
+                              disabled={protocolActionLoading === proto.id}
+                              onClick={async () => {
+                                setProtocolActionLoading(proto.id);
+                                const updated = cipherProtocols.map(p => p.id === proto.id
+                                  ? { ...p, status: 'rejected', tankReview: 'Rejected by operator', tankReviewedAt: new Date().toISOString() }
+                                  : p);
+                                await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cipherProtocols: updated }) });
+                                setCipherProtocols(updated);
+                                setProtocolActionLoading(null);
+                              }}
+                              style={{ fontSize: '0.71rem', padding: '3px 10px', borderRadius: '6px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', color: '#ef4444', cursor: 'pointer' }}
+                            >Reject</button>
+                          )}
                           {status === 'active' && (
                             <button
                               disabled={protocolActionLoading === proto.id}
