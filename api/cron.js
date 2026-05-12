@@ -19,6 +19,7 @@
 import { logAction, getSettings, updateSettings } from '../lib/db.js';
 
 const FIFTEEN_MIN    = 15 * 60 * 1000;
+const THIRTY_MIN     = 30 * 60 * 1000;
 const SIXTY_MIN      =  1 * 60 * 60 * 1000;
 const THREE_HR       =  3 * 60 * 60 * 1000; // Tank recalibrates every 3h
 const TWELVE_HR      = 12 * 60 * 60 * 1000; // Macro ledger still runs every 12h
@@ -51,6 +52,7 @@ export default async function handler(req, res) {
     const timestamps = {
       lastMissionTime:    parseInt(settings.lastMissionTime    || '0'),
       lastRollupTime:     parseInt(settings.lastRollupTime     || '0'),
+      lastKentTime:       parseInt(settings.lastKentTime       || '0'),
       lastNullTime:       parseInt(settings.lastNullTime       || '0'),
       last12HTime:        parseInt(settings.last12HTime        || '0'),
       last24HTime:        parseInt(settings.last24HTime        || '0'),
@@ -136,6 +138,19 @@ export default async function handler(req, res) {
           await logAction(`⚠️ Auto-recal check error: ${e.message}`);
         }
         // ── END AUTO-RECALIBRATION ─────────────────────────────────────────
+      }
+    }
+
+    // ── STEP 2.5: KENT — Chief Market Analyst (every 30 min) ─────────────────
+    // Kent runs BEFORE NULL, so NULL has the latest intelligence to act upon.
+    if (timeLeft() > 8000 && now - timestamps.lastKentTime >= THIRTY_MIN) {
+      try {
+        const { runKent } = await import('./kent.js');
+        await runKent();
+        await updateSettings({ lastKentTime: now.toString() });
+        results.kent = `Intelligence gathered`;
+      } catch (e) {
+        await logAction(`⚠️ KENT Market Analyst error: ${e.message}`);
       }
     }
 

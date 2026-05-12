@@ -56,9 +56,11 @@ export async function runNullCommander() {
   const tankAggressionLevel = settings.tankAggressionLevel || 'neutral';
   const tankRegimeDetected  = settings.tankRegimeDetected  || 'unknown';
 
+  const kentBriefing = settings.kentBriefing || { macroNarrative: 'No Kent briefing available.', catalysts: {} };
+
   const prompt = `You are NULL, the Strategic Commander of CIPHER — an autonomous multi-agent crypto trading system.
 
-COMMAND CHAIN: TANK (12h, Chief of Operations) → YOU (1h, Strategic Commander) → CIPHER (5min, Tactical Execution)
+COMMAND CHAIN: KENT (30m, Intel) → TANK (3h, Chief of Operations) → YOU (1h, Strategic Commander) → CIPHER (5min, Tactical Execution)
 
 Your role in the chain:
 - TANK sets the mission and sees the full picture across days.
@@ -124,6 +126,12 @@ ${JSON.stringify(settings.openPositions || {}, null, 2)}
 
 Previous coachNotes (what NULL last said):
 "${settings.coachNotes || 'None.'}"
+
+KENT MARKET INTELLIGENCE (Latest 30m Briefing):
+Macro Narrative: "${kentBriefing.macroNarrative || 'Unknown'}"
+Current Lens: ${kentBriefing.recommendedCandleDepth || 6}h (Volatility: ${kentBriefing.volatilityState || 'UNKNOWN'})
+Asset Catalysts:
+${JSON.stringify(kentBriefing.catalysts || {}, null, 2)}
 
 Macro Trend Ledger (long-term context):
 "${(settings.macroLedgers && settings.macroLedgers[0]?.text) || 'No macro ledger yet.'}"

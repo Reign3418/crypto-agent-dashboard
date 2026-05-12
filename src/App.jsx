@@ -11,6 +11,7 @@ import NullCommandCenter from './components/NullCommandCenter';
 import TankView from './components/TankView';
 import DozerView from './components/DozerView';
 import NumNumView from './components/NumNumView';
+import KentView from './components/KentView';
 import CipherArchitecture from './components/BastionArchitecture';
 
 const TABS = [
@@ -18,6 +19,7 @@ const TABS = [
   { id: 'tank',      label: '🎯 Tank',          hash: '#tank' },
   { id: 'dozer',     label: '🏗️ Dozer',        hash: '#dozer'   },
   { id: 'numnum',    label: '🔢 NumNum',        hash: '#numnum'  },
+  { id: 'kent',      label: '📰 Kent',          hash: '#kent'    },
   { id: 'null',      label: '🧠 NULL',          hash: '#null' },
   { id: 'strategy',  label: '⚡ Strategy',      hash: '#strategy' },
   { id: 'logs',      label: '📋 Logs',          hash: '#logs' },
@@ -293,6 +295,13 @@ function App() {
         {activeTab === 'numnum' && (
           <div style={{ flex: 1, overflow: 'hidden' }}>
             <NumNumView />
+          </div>
+        )}
+
+        {/* KENT TAB */}
+        {activeTab === 'kent' && (
+          <div style={{ flex: 1, overflow: 'auto' }}>
+            <KentView />
           </div>
         )}
 

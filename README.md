@@ -3,11 +3,16 @@
 ## What This Is
 BASTION is a fully autonomous, serverless multi-agent trading system built on Vercel + AWS DynamoDB. It operates 24/7 without any browser, laptop, or human required to stay active.
 
-The system manages a live crypto portfolio across 9 core assets using a six-agent architecture across two rings: a Combat Ring (strategy + execution) and a Back Office Ring (accounting + audit).
+The system manages a live crypto portfolio across 9 core assets using a seven-agent architecture across three rings: an Intelligence Ring (news/narrative), a Combat Ring (strategy/execution), and a Back Office Ring (accounting/audit).
 
 ---
 
 ## The Team
+
+### 📰 Intelligence Ring
+| Agent | Role | Runs |
+|---|---|---|
+| **KENT** | Chief Market Analyst — builds news narrative, determines analytical lens depth | Every 30 min |
 
 ### ⚔️ Combat Ring
 | Agent | Role | Runs |
@@ -24,7 +29,7 @@ The system manages a live crypto portfolio across 9 core assets using a six-agen
 | **DOZER** | Chief Accounting Officer — FIFO P&L, capital reconciliation, concentration risk | Every 15 min |
 | **BASTION AI** | Deep Dive Forensic Auditor — full financial review on demand | Human-initiated |
 
-For full details on each agent see `rings/COMBAT_RING.md` and `rings/BACKOFFICE_RING.md`.
+For full details on each agent see `rings/INTELLIGENCE_RING.md`, `rings/COMBAT_RING.md`, and `rings/BACKOFFICE_RING.md`.
 
 ---
 
@@ -33,6 +38,7 @@ For full details on each agent see `rings/COMBAT_RING.md` and `rings/BACKOFFICE_
 ```
 Vercel Cron (every 5 min)
     └── api/cron.js
+        ├── api/kent.js       (KENT — runs every 30m)
         ├── api/scout.js      (CIPHER + Big Jon + NumNum)
         ├── api/null-commander.js  (NULL — runs hourly + reactive)
         ├── api/tank.js       (TANK — runs every 3h)

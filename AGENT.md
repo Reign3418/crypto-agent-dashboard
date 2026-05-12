@@ -8,6 +8,13 @@
 
 ## The Team — Two Rings
 
+### 📰 Intelligence Ring
+*The agents that build the market narrative.*
+
+| Agent | File | Role | Cycle |
+|---|---|---|---|
+| **KENT** | `api/kent.js` | Chief Market Analyst — watches the news, maps catalysts, sets the analytical lens depth | Every 30 min (cron) |
+
 ### ⚔️ Combat Ring
 *The agents that fight on the battlefield.*
 
@@ -89,6 +96,7 @@ Trade executes → cost basis written to openPositions
 |---|---|
 | Every 5 min | CIPHER scout mission (tactical trading) |
 | Every 15 min | **DOZER** (accounting reconciliation) + Mission Progress assessment |
+| Every 30 min | **KENT** (news gathering and intelligence briefing) |
 | Every 60 min | Cognitive Rollup + **NULL** strategic command |
 | Every 3 hrs | Macro Trend Ledger + **TANK** (Chief of Operations) |
 | Every 24 hrs | 24H Macro Ledger |

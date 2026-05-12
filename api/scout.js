@@ -95,7 +95,12 @@ async function getCandles(symbol) {
 
 export async function runScoutMission() {
   try {
-    await logAction('🔭 Scout mission started. Scanning 9 core assets...');
+    const { getSettings, getRecentLogs } = await import('../lib/db.js');
+    const settings = await getSettings();
+    const kentBriefing = settings.kentBriefing || null;
+    const lensSize = kentBriefing?.recommendedCandleDepth || 6;
+
+    await logAction(`🔭 Scout mission started. Lens set to ${lensSize}h. Scanning 9 core assets...`);
 
     // Step 1: HARD-LOCKED to liquid assets only.
     // The backend trade guardrail already blocks other coins, so scanning altcoins
@@ -147,19 +152,22 @@ export async function runScoutMission() {
       price: `$${m.price.toLocaleString()}`,
       change24h: `${m.change24h.toFixed(2)}%`,
       trend: m.change24h > 0 ? 'UP' : 'DOWN',
-      recentCandles: m.candles.slice(0, 6).map(c => ({ close: c.close, volume: c.volume }))
+      recentCandles: m.candles.slice(0, lensSize).map(c => ({ close: c.close, volume: c.volume }))
     }));
 
     await logAction('🤖 Handing market data to AI Scout for analysis...');
 
-    // Step 4: Call Gemini AI with Google Search Grounding
+    // Step 4: Call Gemini AI
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_AI_API_KEY });
 
-    const scoutPrompt = `You are a crypto market scout with live internet access. You are the intelligence arm of an autonomous fund that ONLY trades 9 core assets (BTC, ETH, SOL, XRP, LINK, DOGE, LTC, AVAX, BCH).
+    const scoutPrompt = `You are a crypto market scout. You are the intelligence arm of an autonomous fund that ONLY trades 9 core assets (BTC, ETH, SOL, XRP, LINK, DOGE, LTC, AVAX, BCH).
 
-Analyze this real-time market data from the Gemini Exchange and use Google Search to find breaking news, regulatory updates, macro events, or major social sentiment specifically for these 9 assets.
+Analyze this real-time market data from the Gemini Exchange, along with the latest Intelligence Briefing from Kent (the Chief Market Analyst).
 
-Market Data (last 24h):
+Kent's Intelligence Briefing:
+${JSON.stringify(kentBriefing, null, 2)}
+
+Market Data (${lensSize}h OHLCV + 24h change):
 ${JSON.stringify(marketSummary, null, 2)}
 
 Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array) where each object has exactly these fields:
@@ -167,16 +175,13 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
 - "direction": "bullish" | "bearish" | "neutral"
 - "change24h": number (the percentage)
 - "price": string (formatted price)
-- "newsHeadline": string (one real news headline you found, or "No major news" if none)
-- "analystNote": string (your one-sentence key insight combining price action and news — focus on whether this is a good entry/exit opportunity)
+- "newsHeadline": string (use Kent's catalyst for this asset, or "No major news" if null)
+- "analystNote": string (your one-sentence key insight combining price action and Kent's briefing — focus on whether this is a good entry/exit opportunity)
 - "riskLevel": "low" | "medium" | "high"`;
 
     const aiResponse = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: scoutPrompt,
-      config: {
-        tools: [{ googleSearch: {} }],
-      }
+      contents: scoutPrompt
     });
 
     // Step 5: Parse the AI's JSON response
@@ -255,9 +260,7 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
 
     // ── Global AI Autopilot ────────────────────────────────────────────────
     try {
-      const { getSettings, getRecentLogs } = await import('../lib/db.js');
       const { fetchLiveNews } = await import('../lib/news.js');
-      const settings = await getSettings();
       const recentLogs = await getRecentLogs().catch(() => []);
       const liveNews = await fetchLiveNews();
 
