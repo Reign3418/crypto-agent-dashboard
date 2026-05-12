@@ -646,15 +646,26 @@ If you are stuck, say so clearly in your reasoning so Tank can read your distres
              const savedPos = (settings.openPositions || {})[apDecision.symbol?.toUpperCase()];
              const livePriceData = tickerMap[apDecision.symbol?.toUpperCase()];
              const livePrice = livePriceData?.price || savedPos?.buyPrice || 0;
+
+             // Detect full position liquidation: selling >= 85% of position current value.
+             // Full liquidations bypass the profit floor — only stop-loss remains.
+             const positionCurrentValue = savedPos
+               ? parseFloat(savedPos.amountHeld || savedPos.amount || 0) * parseFloat(livePrice)
+               : 0;
+             const isFullLiquidation = apDecision.decision === 'sell'
+               && positionCurrentValue > 0
+               && apDecision.amount >= positionCurrentValue * 0.85;
+
              const numNumResult = runNumNum({
                side: apDecision.decision,
                usdAmount: apDecision.amount,
                currentPrice: parseFloat(livePrice),
                buyPrice: savedPos?.buyPrice ? parseFloat(savedPos.buyPrice) : (parseFloat(livePrice) || null),
-               // Tank-calibrated thresholds — updated every 6h based on Dozer's data
+               // Tank-calibrated thresholds — updated every 3h based on Dozer's data
                numNumFloor:         settings.numNumFloor    ?? null,
                numNumStopLoss:      settings.numNumStopLoss ?? null,
                minTradeSizeOverride: tankMinTradeSize,
+               isFullLiquidation,
              });
              await logAction(`🔢 NumNum: ${numNumResult.reason}`);
              if (!numNumResult.approved) {
