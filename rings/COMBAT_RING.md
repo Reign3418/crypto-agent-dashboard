@@ -341,3 +341,31 @@ On successful trade execution: counter resets to 0.
 2. Remove from **Agent Profiles** in this doc
 3. Remove from the gate order diagram
 4. Update `AGENT.md` and `whitepaper.md`
+
+---
+
+## 📌 Pinned Future Enhancements
+
+> These are design ideas that have been deliberately deferred — not forgotten. Do not implement without revisiting the rationale first.
+
+---
+
+### 1. Smart DCA — Allow Adding to Green Positions
+**Pinned:** 2026-05-11
+**Context:** The current `CHURN PREVENTION` guardrail in `lib/trade.js` blocks ALL buys when 2 positions are held — including buying more of an asset already in the portfolio (DCA). With $51 total capital and 2 open positions, any remaining liquid USD is completely locked out of deployment.
+
+**Current behavior:**
+```
+openPositions >= 2 → ALL buys blocked, including add-to-existing
+```
+
+**Proposed evolution:**
+```
+New unique positions: max 2 (unchanged)
+Adding to an EXISTING position: allowed IF that position is currently ABOVE buy price (green)
+Adding to a LOSING position (below buy price): still blocked — no averaging down
+```
+
+**Why deferred:** At early account size (~$50), doubling into any position is high-risk. The flat block is the safer default until the system has a proven win rate and the team has confidence in CIPHER's entry timing. Revisit when account is >$200 and win rate >50%.
+
+**Implementation note:** The check lives in `lib/trade.js` lines ~29-38. Change from counting `openPositions >= 2` to counting `newUniquePositions` (assets NOT already in `settings.openPositions`). Add a secondary check: if the asset IS already held, allow only if `currentPrice > buyPrice`.
