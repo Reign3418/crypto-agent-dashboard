@@ -83,6 +83,22 @@ export default function KentView() {
               ))}
             </div>
           </div>
+
+          {/* Sources Cited */}
+          {briefing.sources && briefing.sources.length > 0 && (
+            <div className="panel" style={{ marginTop: '10px' }}>
+              <h3 style={{ margin: '0 0 10px 0', fontSize: '1.1rem', color: 'var(--text-muted)' }}>Sources Cited</h3>
+              <ul style={{ margin: 0, paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {briefing.sources.map((source, idx) => (
+                  <li key={idx} style={{ fontSize: '0.85rem' }}>
+                    <a href={source.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-blue)', textDecoration: 'none' }}>
+                      {source.title || source.url}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           
         </div>
       )}

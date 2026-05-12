@@ -63,6 +63,15 @@ Make sure all 9 assets (BTC, ETH, SOL, XRP, LINK, DOGE, LTC, AVAX, BCH) are incl
     const briefing = JSON.parse(rawText);
     briefing.timestamp = new Date().toISOString();
 
+    // Extract exact URLs used by Gemini for receipts
+    const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    briefing.sources = chunks
+      .filter(chunk => chunk.web?.uri)
+      .map(chunk => ({
+        title: chunk.web.title,
+        url: chunk.web.uri
+      }));
+
     await updateSettings({ kentBriefing: briefing });
     
     await logAction(`📰 [KENT] Briefing published. Volatility: ${briefing.volatilityState}. Lens set to ${briefing.recommendedCandleDepth}h.`, true);
