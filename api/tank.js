@@ -126,6 +126,22 @@ ${numNumBlocks > 0
   ? `NumNum has blocked ${numNumBlocks} consecutive trade(s) on ${blockedSymbol}. The market has not reached the required exit price.`
   : 'NumNum has not blocked recent trades. System operating without friction.'}
 
+${settings.cipherDistressFlag ? `
+⚠️⚠️ CIPHER DISTRESS SIGNAL ⚠️⚠️
+CIPHER has declared it is STUCK and cannot execute its mission.
+Distress reason: "${settings.cipherDistressReason || 'Unknown'}"
+Signal raised at: ${settings.cipherDistressAt || 'Unknown'}
+
+As Chief of Operations, YOUR FIRST PRIORITY is to respond to this distress signal.
+CIPHER is a field agent doing exactly the right thing by escalating to you rather than panicking.
+You MUST address this in your mission directive and your agent health assessment.
+Options available to you:
+- If the market is ranging and CIPHER is stuck in a losing position, lower the mission's profit requirement and tell CIPHER to hold patiently.
+- If conditions warrant, set a mission that explicitly allows CIPHER to exit at a small loss to free capital.
+- Issue a directive via NULL that tells CIPHER directly: "I see you. Stand down. I am adjusting."
+Do NOT ignore this signal. Do NOT set the same mission as before. Your team needs leadership.
+` : ''}
+
 NumNum gate — current calibration (Tank sets this each cycle):
   Floor: ${settings.numNumFloor || '1.5'}% minimum net profit
   Stop-loss: ${settings.numNumStopLoss || '5.0'}% drawdown trigger
@@ -507,8 +523,8 @@ Return ONLY the JSON array. No markdown. No explanation outside the array.`;
     missionDirective: report.missionDirective,
     missionSetBy: 'Tank',
     missionSetAt: now.toISOString(),
-    tankMissionLiquidUSD: liquidUSD.toString(), // baseline for auto-recal drift detection
-    cipherProtocols: updatedProtocols,          // reviewed protocol list
+    tankMissionLiquidUSD: liquidUSD.toString(),
+    cipherProtocols: updatedProtocols,
     numNumFloor:            numNumFloor.toString(),
     numNumStopLoss:         numNumStopLoss.toString(),
     trailingStopLoss:       trailingStopLoss.toString(),
@@ -517,6 +533,9 @@ Return ONLY the JSON array. No markdown. No explanation outside the array.`;
     tankCapitalEfficiencyMode: capitalEfficiencyMode,
     tankAggressionLevel:    aggressionLevel,
     tankRegimeDetected:     regimeDetected,
+    // Tank has responded to CIPHER's distress. Clear the flag.
+    cipherDistressFlag:     false,
+    cipherDistressReason:   '',
   });
 
   // ── Log Tank's activity ───────────────────────────────────────────────────

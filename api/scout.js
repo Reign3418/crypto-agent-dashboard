@@ -498,7 +498,7 @@ NEVER declare "complete" solely because you have an open position that was place
 
 Return ONLY a JSON object with this exact structure (no markdown fences, just raw JSON):
 {
-  "decision": "buy" | "sell" | "hold" | "complete" | "fail",
+  "decision": "buy" | "sell" | "hold" | "complete" | "stuck" | "fail",
   "symbol": "BTC", // required if buying/selling
   "amount": 10.50,  // the USD amount you decide to trade based on your mission
   "fundingSource": "USD", // "USD" or the symbol of an authorized asset to liquidate
@@ -517,7 +517,13 @@ For "protocolProposal": If you have observed a clear, repeatable pattern across 
 Otherwise leave protocolProposal as null.
 
 If you evaluate your Portfolio Balances and determine that you have successfully accomplished your Mission Directive, you MUST return "decision": "complete". Do not stop executing. Provide an optimization suggestion so we can immediately start the next cycle with better context.
-If you evaluate your Portfolio Balances and determine that your Mission Directive has completely failed (e.g., severe drawdown, out of capital, or impossible market conditions), you MUST return "decision": "fail". This will trigger an emergency halt to protect remaining funds.`;
+If you evaluate your Portfolio Balances and determine that your Mission Directive has completely failed (e.g., severe drawdown, out of capital, or impossible market conditions), you MUST return "decision": "fail". This will trigger an emergency halt to protect remaining funds.
+
+⚠️ STUCK vs FAIL — CRITICAL DISTINCTION. You are a field agent. You do NOT have the authority to shut down the system. That is Tank's call.
+- Return "stuck" if: NumNum keeps blocking your trades, you are trapped in a losing position you cannot exit, or market conditions make your mission temporarily impossible. Tank will hear you and respond. Autopilot stays ON.
+- Return "fail" ONLY if: your liquid USD balance is below $5 AND you have no path forward. This is a true capital destruction event. It will trigger an emergency halt.
+- When in doubt, return "stuck" or "hold". Never "fail" unless the fund is genuinely wiped out.
+If you are stuck, say so clearly in your reasoning so Tank can read your distress signal.`;
 
         const apRes = await ai.models.generateContent({
           model: 'gemini-2.5-pro',
@@ -699,10 +705,33 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
                await logAction(`🧠 AI Optimization Suggestion: ${apDecision.optimizationSuggestion}`, true);
            }
            await updateSettings({ missionCompletions: completions });
-        } else if (apDecision.decision === 'fail') {
-           await logAction(`🚨 MISSION FAILED. Emergency Halt Initiated. Reason: ${apDecision.reasoning}`, true);
-           const { updateSettings } = await import('../lib/db.js');
-           await updateSettings({ autopilotEnabled: false });
+         } else if (apDecision.decision === 'stuck') {
+           // CIPHER is screaming for help. Log it loud, set distress flag, keep autopilot ON.
+           // Tank will hear this on its next 3h cycle and respond.
+           await logAction(`🆘 [CIPHER DISTRESS] CIPHER is STUCK and cannot execute mission. Reason: ${apDecision.reasoning}`, true);
+           await updateSettings({
+             cipherDistressFlag: true,
+             cipherDistressReason: apDecision.reasoning,
+             cipherDistressAt: new Date().toISOString(),
+           });
+           // Autopilot stays ON. Tank will handle it.
+         } else if (apDecision.decision === 'fail') {
+           // True capital destruction — Tank gave the OK for this emergency stop.
+           // Only fires if liquid capital is genuinely gone (< $5).
+           const liquidUSD = settings.dozerReport?.capitalBalance?.liquidUSD ?? 999;
+           if (liquidUSD < 5) {
+             await logAction(`🚨 MISSION FAILED — Capital Destruction Confirmed ($${liquidUSD.toFixed(2)} liquid). Emergency Halt. Reason: ${apDecision.reasoning}`, true);
+             await updateSettings({ autopilotEnabled: false });
+           } else {
+             // CIPHER tried to declare fail but has $${liquidUSD} liquid — this is a stuck, not a fail.
+             // Override to stuck behavior: log the distress, keep running.
+             await logAction(`🆘 [CIPHER DISTRESS — OVERRIDDEN FAIL] CIPHER returned 'fail' but liquid is $${liquidUSD.toFixed(2)}. Treating as STUCK. Autopilot remains ON. Reason: ${apDecision.reasoning}`, true);
+             await updateSettings({
+               cipherDistressFlag: true,
+               cipherDistressReason: `CIPHER declared fail (overridden): ${apDecision.reasoning}`,
+               cipherDistressAt: new Date().toISOString(),
+             });
+           }
         } else {
            await logAction(`🧠 Autopilot Decision: HOLD. Reason: ${apDecision.reasoning}`);
         }
