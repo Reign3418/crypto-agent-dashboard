@@ -3,20 +3,28 @@
 ## What This Is
 BASTION is a fully autonomous, serverless multi-agent trading system built on Vercel + AWS DynamoDB. It operates 24/7 without any browser, laptop, or human required to stay active.
 
-The system manages a small crypto portfolio across 9 core assets using a four-agent architecture: a strategic commander, a tactical trader, a conflict referee, and a fee math calculator.
+The system manages a live crypto portfolio across 9 core assets using a six-agent architecture across two rings: a Combat Ring (strategy + execution) and a Back Office Ring (accounting + audit).
 
 ---
 
 ## The Team
 
+### ⚔️ Combat Ring
 | Agent | Role | Runs |
 |---|---|---|
-| **NULL** | Strategic Commander — issues hourly directives | Every 60 min |
-| **CIPHER** | Tactical Sniper — reads markets, executes trades | Every 5 min |
+| **TANK** | Chief of Operations — owns the mission directive, assesses system health | Every 3 hrs |
+| **NULL** | Strategic Commander — issues tactical directives based on Tank's frame | Every 60 min + reactive on >3% move |
+| **CIPHER** | Tactical Execution — reads markets, proposes trades | Every 5 min |
 | **Big Jon** | Conflict Referee — blocks misaligned trades | Every trade attempt |
 | **NumNum** | Fee Math Gate — blocks unprofitable trades | Every trade attempt |
 
-For full details on each agent see `/agent-personas/`.
+### 🏢 Back Office Ring
+| Agent | Role | Runs |
+|---|---|---|
+| **DOZER** | Chief Accounting Officer — FIFO P&L, capital reconciliation, concentration risk | Every 15 min |
+| **BASTION AI** | Deep Dive Forensic Auditor — full financial review on demand | Human-initiated |
+
+For full details on each agent see `rings/COMBAT_RING.md` and `rings/BACKOFFICE_RING.md`.
 
 ---
 
@@ -25,14 +33,15 @@ For full details on each agent see `/agent-personas/`.
 ```
 Vercel Cron (every 5 min)
     └── api/cron.js
-        ├── api/scout.js (CIPHER + Big Jon + NumNum)
-        ├── api/null-commander.js (NULL — runs hourly)
-        ├── api/rollup.js (Deep Dive audit — on demand)
-        └── lib/numnum.js (pure fee math — no AI)
+        ├── api/scout.js      (CIPHER + Big Jon + NumNum)
+        ├── api/null-commander.js  (NULL — runs hourly + reactive)
+        ├── api/tank.js       (TANK — runs every 3h)
+        ├── api/dozer.js      (DOZER — runs every 15min)
+        └── api/rollup.js     (Cognitive rollup, macro ledgers, BASTION audit)
 
 AWS DynamoDB
-    └── settings table (openPositions, coachNotes, numNumBlocks, etc.)
-    └── logs table (all activity feed entries)
+    └── settings table (openPositions, coachNotes, missionDirective, dozerReport, etc.)
+    └── logs table (all activity feed entries, partitioned by AGENT_LOG pk + epoch sk)
 ```
 
 ---
@@ -42,19 +51,22 @@ AWS DynamoDB
 Every buy or sell clears four gates before capital moves:
 
 ```
-1. CIPHER proposes (buy/sell/hold)
-2. Big Jon — CIPHER/NULL alignment check
-3. NumNum — fee viability math check
-4. executeTrade() — Gemini Exchange API
+1. CIPHER proposes (buy / sell / hold / complete / fail)
+2. [REACTIVE] NULL refreshes if any asset moved >3% in last 15min
+3. Big Jon — CIPHER/NULL spirit-of-directive alignment check
+4. NumNum — fee viability math check (~2.3% net threshold)
+5. executeTrade() — Gemini Exchange API
 ```
 
 ---
 
 ## Key Rules
 
-- **Add USD only.** Never buy crypto manually on the same Gemini account. CIPHER will inherit unprotected positions with no cost basis and may sell them unexpectedly.
-- **The system never needs to be "turned off."** It runs autonomously on Vercel infrastructure. Shutdown means closing a work session, not stopping the website.
-- **To resume monitoring:** Open the dashboard, check the Activity Feed and NULL Command Center tab.
+- **Add USD only.** Never buy crypto manually on the same Gemini account. CIPHER inherits unprotected positions with no cost basis and may sell them at unexpected times.
+- **The system never needs to be "turned off."** It runs autonomously on Vercel. Shutdown means closing a work session, not stopping the website.
+- **To resume monitoring:** Open the dashboard, check the Activity Feed, Tank tab, and NULL Command Center.
+- **Command hierarchy:** Tank → NULL → CIPHER. Higher authority always wins.
+- **Truth hierarchy:** Live Exchange Balances → Dozer FIFO ledger.
 
 ---
 
@@ -72,7 +84,8 @@ See `AGENT.md` for the full startup and shutdown sequence.
 BTC, ETH, SOL, XRP, LINK, DOGE, LTC, AVAX, BCH
 
 ## Hardcoded Guardrails
-- Max 2 open positions at any time
+- Max 2 open positions at any time (new unique assets only)
 - 5% hard stop-loss on all positions (runs even when autopilot is off)
 - Min trade size $15.00 (NumNum enforced)
-- Min net profit 1.5% above buy price before selling (NumNum enforced)
+- Min net profit ~2.3% above buy price before selling (NumNum enforced — covers 0.4% fee each side + 1.5% profit floor)
+- Dynamic tick-size precision per asset (Gemini API lookup — prevents "Invalid quantity" errors)

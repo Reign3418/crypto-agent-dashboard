@@ -19,7 +19,7 @@ The Back Office Ring is responsible for **financial integrity, capital accountin
 DOZER  (every 15 minutes — automated, always-on)
 │  Chief Accounting Officer
 │  Pure deterministic math. No AI.
-│  Writes verified accounting data → TANK reads it every 12h
+│  Writes verified accounting data → TANK reads it every 3h
 │
 BASTION AI  (on demand — human-initiated)
    Deep Dive forensic audit
@@ -65,14 +65,16 @@ Note: BASTION AI is not on a cron schedule. It runs when the human operator requ
 
 **1. Capital Balance Reconciliation**
 Every 15 minutes, Dozer answers these questions with math:
-| Field | What It Means |
-|---|---|
-| `liquidUSD` | Cash available to trade right now |
-| `totalDeployed` | Cost basis of all open positions |
-| `netRealizedPL` | Net P&L on all fully closed trade pairs |
-| `unrealizedPL` | Current paper gain/loss on open positions |
-| `netPosition` | The real scorecard: realized + unrealized |
-| `liquidityStatus` | ADEQUATE / LOW / CRITICAL |
+| Field | What It Means | How Computed |
+|---|---|---|
+| `liquidUSD` | Cash available to trade right now | Live exchange API (`getPortfolioBalances()`) |
+| `totalDeployed` | Cost basis of all open positions | `sum(amount × buyPrice)` per position |
+| `netRealizedPL` | Net P&L on all fully closed trade pairs | FIFO pair matching from trade logs |
+| `unrealizedPL` | Current paper gain/loss on open positions | `sum(exchange_notional - cost_basis)` per position |
+| `netPosition` | The real scorecard: realized + unrealized | `netRealizedPL + unrealizedPL` |
+| `liquidityStatus` | ADEQUATE / LOW / CRITICAL | `<$5` = CRITICAL, `<$15` = LOW |
+
+> ⚠️ **Important:** `trade.js` only writes `{ amount, buyPrice, highWaterMark, timestamp }` to `openPositions`. It does NOT write `costBasisUsd` or `unrealizedPlUsd`. Dozer computes both from first principles on every 15-minute cycle. Do not read these fields directly from `settings.openPositions` — they won't be there.
 
 **2. FIFO Trade Pair Ledger**
 Matches every buy to its corresponding sell using First-In-First-Out accounting. Each matched pair records: symbol, cost basis, proceeds, fees, gross P&L, net P&L, won/lost.

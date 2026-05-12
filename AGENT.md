@@ -13,7 +13,7 @@
 
 | Agent | File | Role | Cycle |
 |---|---|---|---|
-| **TANK** | `api/tank.js` | Chief of Operations — owns the mission directive, assesses system health, writes the 12h briefing | Every 12h (cron) |
+| **TANK** | `api/tank.js` | Chief of Operations — owns the mission directive, assesses system health, writes the 3h briefing | Every 3h (tank-cron) |
 | **NULL** | `api/null-commander.js` | Strategic Commander — reads Tank's frame, issues hourly tactical directives to CIPHER | Every 60 min (cron) + reactive on >3% market movers |
 | **CIPHER** | `api/scout.js` | Tactical Execution — reads markets, reads mission + NULL directive, proposes trades | Every 5 min (cron) |
 | **Big Jon** | `api/scout.js` (inline) | Conflict Referee — checks CIPHER's intent against NULL's directive (spirit, not literal text) | Every trade attempt |
@@ -90,7 +90,7 @@ Trade executes → cost basis written to openPositions
 | Every 5 min | CIPHER scout mission (tactical trading) |
 | Every 15 min | **DOZER** (accounting reconciliation) + Mission Progress assessment |
 | Every 60 min | Cognitive Rollup + **NULL** strategic command |
-| Every 12 hrs | Macro Trend Ledger + **TANK** (Chief of Operations) |
+| Every 3 hrs | Macro Trend Ledger + **TANK** (Chief of Operations) |
 | Every 24 hrs | 24H Macro Ledger |
 | On demand | CIPHER AUDIT Deep Dive (human-initiated) |
 
@@ -280,5 +280,39 @@ If Tank hasn't run recently and you want NULL to have context for the next cycle
 - If Dozer's `NET POSITION` doesn't match your expectation, check `externalAnomalies`
 - Any sell with no matching buy shows up there — these are excluded from P&L by design
 - The reconciliation note at the bottom of the Dozer panel explains what Dozer found
+- Note: `DEPLOYED` and `UNREALIZED P&L` are computed by Dozer from `amount × buyPrice` and live exchange notional values — they are NOT stored fields in `openPositions`. `trade.js` only writes `{ amount, buyPrice, highWaterMark, timestamp }`.
+
+---
+
+## 🐛 Session Bug Fix Log
+
+| Date | Bug | Fix | File |
+|---|---|---|---|
+| 2026-05-11 | Dozer `Deployed: $0.00` — read non-existent `costBasisUsd` field | Computes `amount × buyPrice` | `dozer.js` |
+| 2026-05-11 | Dozer `Unrealized P&L: $0.00` — read non-existent `unrealizedPlUsd` field | Fetches live notional from exchange, subtracts cost basis | `dozer.js` |
+| 2026-05-11 | Dozer `Concentration: 0%` — divided by `$0` totalDeployed | Same root fix as deployed | `dozer.js` |
+| 2026-05-11 | Protocol panel: no Reject button for pending protocols | Added red Reject button for `pending` + `needs_more_data` | `StrategyPanel.jsx` |
+| 2026-05-11 | Tank AI wrote impossible mission dollar amounts (`$10 max` vs `$15 min`) | Tank pre-computes real bounds and injects into prompt before AI call | `tank.js` |
+| 2026-05-11 | NULL "maintain your current LTC position" → CIPHER declared MISSION ACCOMPLISHED | Position language guardrail added to NULL prompt | `null-commander.js` |
+| 2026-05-11 | CIPHER declaring MISSION ACCOMPLISHED just from holding an existing position | Hard rule: `complete` only valid if NEW trade placed this cycle | `scout.js` |
+| 2026-05-11 | `trade.js` hardcoded `toFixed(6)` — Gemini rejected orders with wrong precision | Dynamic tick-size lookup via `/v1/symbols/details` | `trade.js` |
+| 2026-05-11 | Concentration check used deployed-only as denominator (first trade = 100% → blocked) | Fixed denominator to total available capital | `scout.js` |
+
+---
+
+## 🏦 Current Era Status (updated 2026-05-11)
+
+**Era:** CIPHER | **Status:** OPERATIONAL — Live Trading Active
+
+| Field | Value |
+|---|---|
+| Open Positions | LTC (0.25471 @ $58.78), XRP (10.17 @ $1.4747) |
+| Total Deployed | ~$30.00 |
+| Liquid USD | ~$20.73 |
+| Total Fees Paid | $0.1199 |
+| Closed Trades | 0 (first sells pending 2.5% profit target) |
+| Active Mission | Achieve one profitable closed trade pair |
+| System Health | STABLE — guardrails active, all agents operational |
+
 
 

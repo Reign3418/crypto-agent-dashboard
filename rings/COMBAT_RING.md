@@ -18,7 +18,7 @@ The ring operates as a strict chain of command — no agent executes out of sequ
 ## Ring Architecture
 
 ```
-TANK  (every 12 hours)
+TANK  (every 3 hours)
 │  Chief of Operations. Owns the mission. Sees all time. Reads Dozer's books.
 │
 └── NULL  (every 1 hour + reactive on any asset >3% move)
@@ -89,7 +89,7 @@ Every trade goes through this exact sequence. No exceptions.
 ### TANK — Chief of Operations
 **Named after:** Tank from The Matrix — the operator who never goes into the simulation but sees every feed and keeps the mission viable.
 **Model:** `gemini-2.5-flash`
-**Cadence:** Every 12 hours (AM + PM)
+**Cadence:** Every 3 hours
 **File:** `api/tank.js`
 
 **Identity:** Tank does not trade. Does not issue hourly tactics. Does not go into the trenches. Tank stands above the battlefield with full visibility across all time and all agents, and asks the only question that matters: *is the system still viable?*
@@ -134,6 +134,8 @@ Every trade goes through this exact sequence. No exceptions.
 | Be specific | Good: "3 profitable closed trades over 7 days." Bad: "Make money." |
 | Replace stale goals | Mission never completed in >3 days → Tank MUST set a new one. |
 | Don't lower bar infinitely | Never set a goal so easy it stops driving quality. |
+| No dollar amounts in mission text | Tank pre-computes `minTradeSize`/`maxTradeSize` from Dozer's capital BEFORE calling the AI and injects them into the prompt. The AI is forbidden from writing a dollar figure that contradicts these hard bounds. |
+| No "execute one trade" missions | CIPHER declares complete the moment a position opens. Mission must require a closed, profitable trade pair. |
 
 **Agent Health Assessment:**
 | Agent | HEALTHY | MONITOR | CRITICAL |
@@ -192,6 +194,7 @@ Every trade goes through this exact sequence. No exceptions.
 - Bypass the ALLOWED_ASSETS guardrail
 - Disable the Emergency Stop
 - Override NumNum
+- Use "maintain your current [asset] position" language — CIPHER interprets this as mission complete. Use "continue holding your existing positions while pursuing..." instead.
 
 ---
 
@@ -227,9 +230,11 @@ Every trade goes through this exact sequence. No exceptions.
 ```
 
 **Hardcoded guardrails (cannot be overridden by NULL or Tank):**
-- Maximum 2 open positions at any time
+- Maximum 2 open positions at any time (unique new assets only — see Pinned Future Enhancements for DCA evolution)
 - 5% hard stop-loss on all positions — triggers panic sell regardless of autopilot state
 - `decision: "fail"` triggers emergency halt and disables autopilot
+- `decision: "complete"` is only valid when a NEW trade was PLACED AND CONFIRMED in the current cycle — holding an existing position does NOT satisfy mission completion
+- Trade size is controlled by Tank's pre-computed `minTradeSize`/`maxTradeSize` parameters. Any dollar amount in the mission directive text is informational only and never overrides these bounds.
 
 **Does NOT:**
 - Calculate fee viability (NumNum)
