@@ -343,8 +343,32 @@ Return ONLY valid JSON (no markdown, no code blocks):
     calibrationReason += ' | risk LOW — stop-loss widened to 7% / trail 4%';
   }
 
-  // Clamp floor and stop to safe operating bounds
-  numNumFloor    = parseFloat(Math.min(Math.max(numNumFloor, 0.5), 4.0).toFixed(1));
+  // Rule 4: GRIDLOCK SELF-CORRECTION
+  // If NumNum has blocked the same asset repeatedly, the system is trapped in a
+  // fee-burning loop. Tank progressively lowers the floor to allow a controlled exit.
+  // Thresholds: >20 blocks (~2h stuck) → floor drops to 1.0%
+  //             >40 blocks (~4h stuck) → floor drops to 0.0% (exit at any price above fees)
+  // This ONLY applies when the blocked asset is still an open position.
+  // The floor resets to normal on the next Tank cycle after a successful trade clears the block.
+  const gridlockBlocks  = parseInt(settings.numNumBlocks || '0');
+  const gridlockSymbol  = settings.numNumBlockedSymbol || null;
+  const openPositions   = settings.openPositions || {};
+  const isGridlocked    = gridlockBlocks > 0 && gridlockSymbol && openPositions[gridlockSymbol];
+
+  if (isGridlocked) {
+    if (gridlockBlocks >= 40) {
+      numNumFloor = 0.0;
+      calibrationReason += ` | 🚨 GRIDLOCK OVERRIDE (${gridlockBlocks} blocks on ${gridlockSymbol}) — floor DROPPED to 0%: exit at any price above fees`;
+    } else if (gridlockBlocks >= 20) {
+      numNumFloor = Math.min(numNumFloor, 1.0);
+      calibrationReason += ` | ⚠️ GRIDLOCK WARNING (${gridlockBlocks} blocks on ${gridlockSymbol}) — floor CAPPED at 1%`;
+    }
+  }
+
+  // Clamp floor and stop to safe operating bounds.
+  // EXCEPTION: Gridlock override (40+ blocks) is allowed to bypass the 0.5% hard floor.
+  const floorMin = (isGridlocked && gridlockBlocks >= 40) ? 0.0 : 0.5;
+  numNumFloor    = parseFloat(Math.min(Math.max(numNumFloor, floorMin), 4.0).toFixed(1));
   numNumStopLoss = parseFloat(Math.min(Math.max(numNumStopLoss, 2.0), 10.0).toFixed(1));
   trailingStopLoss = parseFloat(Math.min(Math.max(trailingStopLoss, 1.5), 6.0).toFixed(1));
 
