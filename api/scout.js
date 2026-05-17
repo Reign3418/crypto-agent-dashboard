@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import createKimiClient from '../lib/ai-client.js';
 import { logAction, saveScoutReport, updateSettings } from '../lib/db.js';
 import { runEvaluation } from '../lib/evaluator.js';
 import { runNumNum } from '../lib/numnum.js';
@@ -11,7 +11,7 @@ import { runNumNum } from '../lib/numnum.js';
  *
  * Returns { conflict: boolean, reason: string }
  */
-async function checkNullCipherSync(ai, nullDirective, cipherDecision) {
+async function checkNullCipherSync(kimi, nullDirective, cipherDecision) {
   // If NULL has no directive yet, no conflict possible
   if (!nullDirective || nullDirective.trim() === '') {
     return { conflict: false, reason: 'No NULL directive active.' };
@@ -45,12 +45,7 @@ Return ONLY valid JSON (no markdown):
 { "conflict": true | false, "reason": "one sentence explanation" }`;
 
   try {
-    const res = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: syncPrompt,
-    });
-    const raw = res.text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
-    return JSON.parse(raw);
+    return await kimi.chatJSON([{ role: 'user', content: syncPrompt }]);
   } catch (e) {
     // If the sync check itself fails, fail safe — do NOT block the trade
     console.warn('[Sync Validator] Check failed, allowing trade:', e.message);
@@ -157,8 +152,8 @@ export async function runScoutMission() {
 
     await logAction('🤖 Handing market data to AI Scout for analysis...');
 
-    // Step 4: Call Gemini AI
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_AI_API_KEY });
+    // Step 4: Initialize Kimi K2.6 client
+    const kimi = createKimiClient();
 
     const scoutPrompt = `You are a crypto market scout. You are the intelligence arm of an autonomous fund that ONLY trades 9 core assets (BTC, ETH, SOL, XRP, LINK, DOGE, LTC, AVAX, BCH).
 
@@ -179,18 +174,10 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
 - "analystNote": string (your one-sentence key insight combining price action and Kent's briefing — focus on whether this is a good entry/exit opportunity)
 - "riskLevel": "low" | "medium" | "high"`;
 
-    const aiResponse = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: scoutPrompt
-    });
-
     // Step 5: Parse the AI's JSON response
     let scoutReport = [];
     try {
-      let rawText = aiResponse.text.trim();
-      // Strip any accidental markdown code fences
-      rawText = rawText.replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
-      scoutReport = JSON.parse(rawText);
+      scoutReport = await kimi.chatJSON([{ role: 'user', content: scoutPrompt }]);
     } catch (parseErr) {
       // If AI response can't be parsed, fall back to raw market data
       await logAction('⚠️ Scout AI parse error — returning raw market data.');
@@ -525,13 +512,7 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
 - When in doubt, return "stuck" or "hold". Never "fail" unless the fund is genuinely wiped out.
 If you are stuck, say so clearly in your reasoning so Tank can read your distress signal.`;
 
-        const apRes = await ai.models.generateContent({
-          model: 'gemini-2.5-pro',
-          contents: autopilotPrompt
-        });
-        
-        let rawApText = apRes.text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
-        const apDecision = JSON.parse(rawApText);
+        const apDecision = await kimi.chatJSON([{ role: 'user', content: autopilotPrompt }]);
 
         // ── PROTOCOL PROPOSAL HANDLER ──────────────────────────────────
         // If CIPHER proposed a protocol this cycle, save it to DB as 'pending'.
@@ -630,7 +611,7 @@ If you are stuck, say so clearly in your reasoning so Tank can read your distres
             if (!buyBlocked) {
            // ── BIG JON CONFLICT CHECK ──────────────────────────────────────────
            // Big Jon steps in before any trade. If CIPHER and NULL are out of sync, he stops the fight.
-           const sync = await checkNullCipherSync(ai, settings.coachNotes, apDecision);
+           const sync = await checkNullCipherSync(kimi, settings.coachNotes, apDecision);
            if (sync.conflict) {
              // Big Jon blocks the trade — but does NOT kill autopilot.
              // A conflict is a temporary misalignment, not an emergency.
@@ -741,7 +722,7 @@ If you are stuck, say so clearly in your reasoning so Tank can read your distres
                cipherDistressFlag: true,
                cipherDistressReason: `CIPHER declared fail (overridden): ${apDecision.reasoning}`,
                cipherDistressAt: new Date().toISOString(),
-             });
+            });
            }
         } else {
            await logAction(`🧠 Autopilot Decision: HOLD. Reason: ${apDecision.reasoning}`);

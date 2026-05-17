@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import createKimiClient from '../lib/ai-client.js';
 import { getRecentLogs, getSettings, updateSettings, logAction } from '../lib/db.js';
 
 /**
@@ -8,7 +8,7 @@ import { getRecentLogs, getSettings, updateSettings, logAction } from '../lib/db
  * the coachNotes field so CIPHER adjusts tactics on its next 5-min cycle.
  */
 export async function runNullCommander() {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_AI_API_KEY });
+  const kimi = createKimiClient();
 
   const [logs, settings] = await Promise.all([
     getRecentLogs(60),
@@ -149,12 +149,7 @@ Based ONLY on the data above, write a single coachNotes directive for CIPHER.
 Return ONLY the raw directive string. No JSON. No markdown. No explanation. Just the directive.`;
 
 
-  const aiRes = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: prompt,
-  });
-
-  const directive = aiRes.text.trim();
+  const directive = await kimi.chat([{ role: 'user', content: prompt }]);
 
   // Write NULL's directive directly to coachNotes — full autonomous override
   await updateSettings({ coachNotes: directive });
@@ -164,4 +159,3 @@ Return ONLY the raw directive string. No JSON. No markdown. No explanation. Just
 
   return directive;
 }
-

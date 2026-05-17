@@ -1,0 +1,1076 @@
+diff --git a/.env.prod b/.env.prod
+index a44c435..a18f9ee 100644
+--- a/.env.prod
++++ b/.env.prod
+@@ -5,7 +5,10 @@ AWS_SECRET_ACCESS_KEY=""
+ CRON_SECRET=""
+ DASHBOARD_PASSWORD=""
+ DASHBOARD_URL=""
++KIMI_API_KEY=""
+ GEMINI_AI_API_KEY=""
++# KENT (news/intelligence) uses Gemini 2.5 Flash for Google Search Grounding.
++# All other agents use Kimi K2.6 via KIMI_API_KEY.
+ GEMINI_EXCHANGE_API_KEY=""
+ GEMINI_EXCHANGE_API_SECRET=""
+ NX_DAEMON="false"
+diff --git a/api/agent.js b/api/agent.js
+index 988c8cc..4981c38 100644
+--- a/api/agent.js
++++ b/api/agent.js
+@@ -1,9 +1,9 @@
+-import { GoogleGenAI } from '@google/genai';
++import createKimiClient from '../lib/ai-client.js';
+ import crypto from 'crypto';
+ import { logAction } from '../lib/db.js';
+ 
+ // --- Gemini Exchange API Helpers ---
+-async function geminiPrivateApiRequest(endpoint, payload = {}) {
++async function geminiExchangeApiRequest(endpoint, payload = {}) {
+   const apiKey = process.env.GEMINI_EXCHANGE_API_KEY;
+   const apiSecret = process.env.GEMINI_EXCHANGE_API_SECRET;
+   
+@@ -73,108 +73,112 @@ export default async function handler(req, res) {
+   const { prompt, history } = req.body;
+   if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
+ 
+-  if (!process.env.GEMINI_AI_API_KEY) {
+-    return res.status(500).json({ error: 'Missing GEMINI_AI_API_KEY in Vercel Environment Variables' });
++  if (!process.env.KIMI_API_KEY) {
++    return res.status(500).json({ error: 'Missing KIMI_API_KEY in Vercel Environment Variables' });
+   }
+ 
+   try {
+     // Log the user's incoming command
+     await logAction(`Received instruction: "${prompt.substring(0, 40)}..."`);
+ 
+-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_AI_API_KEY });
+-
+-    // 1. Define the Tools (What the AI is allowed to do)
+-    const tools = [{
+-      functionDeclarations: [
+-        {
+-          name: 'getAccountBalances',
+-          description: 'Fetch the current balances of all assets in the user\'s Gemini crypto portfolio.',
+-        },
+-        {
+-          name: 'getMarketTicker',
+-          description: 'Get the latest market ticker data for a specific trading pair (e.g., btcusd, ethusd, solusd).',
+-          parameters: {
+-            type: 'OBJECT',
+-            properties: {
+-              symbol: {
+-                type: 'STRING',
+-                description: 'The trading pair symbol, like btcusd or ethusd.'
+-              }
+-            },
+-            required: ['symbol']
+-          }
+-        },
+-        {
+-          name: 'getScoutReport',
+-          description: 'Run the Scout — scan all Gemini markets, find the top movers up and down, read live news for each, and return a ranked intelligence report. Use this when the user asks what is hot, what is moving, what they should watch, or for a market overview.',
+-        },
+-        {
+-          name: 'evaluateStrategies',
+-          description: 'Evaluate all active trading strategies against the current market. Returns which strategies have their conditions met and which are not triggered. Use when the user asks if any strategies are triggered, what their rules are doing, or for a strategy status check.',
+-        },
+-        {
+-          name: 'executeTrade',
+-          description: 'Execute a real, live buy or sell trade on the Gemini Exchange. The USD amount determines the size of the trade. Use this when the user explicitly asks to buy or sell an asset.',
+-          parameters: {
+-            type: 'OBJECT',
+-            properties: {
+-              symbol: { type: 'STRING', description: 'The trading pair symbol without USD, e.g. BTC or ETH' },
+-              side: { type: 'STRING', description: 'Either "buy" or "sell"' },
+-              usdAmount: { type: 'NUMBER', description: 'The dollar amount to trade.' }
+-            },
+-            required: ['symbol', 'side', 'usdAmount']
+-          }
+-        }
+-      ]
+-    }];
++    const kimi = createKimiClient();
++
++    // 1. Define the System Prompt with embedded tool descriptions
++    const systemPrompt = `You are an elite cryptocurrency trading assistant. You have access to real-time market data and the user's Gemini portfolio. Analyze data intelligently and answer concisely.
+ 
+-    const systemInstruction = `You are an elite cryptocurrency trading assistant. You have access to real-time market data and the user's Gemini portfolio. Analyze data intelligently and answer concisely. 
+ CRITICAL EMERGENCY DIRECTIVES:
+ 1. SPREAD PROTECTION: You may ONLY trade BTC, ETH, SOL, and XRP. Do not trade any other coins, as their low liquidity and massive spreads destroy capital.
+ 2. PORTFOLIO PROTECTION: You MUST enact a strict 5% stop-loss logic. If the user's assets are down more than 5% from their value, prioritize selling them immediately to cut losses.
+-3. CHURN PREVENTION: Do not execute new BUYS if the portfolio already holds active positions in non-stablecoin assets, to prevent massive fee churn.`;
++3. CHURN PREVENTION: Do not execute new BUYS if the portfolio already holds active positions in non-stablecoin assets, to prevent massive fee churn.
++
++You have access to the following tools. To use a tool, respond with ONLY a valid JSON object in this exact format:
++{"tool": "functionName", "parameters": {...}}
++
++After receiving tool results, you may call another tool (up to 5 times) or provide a final plain-text answer to the user.
++
++Available tools:
++
++1. getAccountBalances
++   Description: Fetch the current balances of all assets in the user's Gemini crypto portfolio.
++   Parameters: none
++
++2. getMarketTicker
++   Description: Get the latest market ticker data for a specific trading pair (e.g., btcusd, ethusd, solusd).
++   Parameters:
++     - symbol (string, required): The trading pair symbol, like btcusd or ethusd.
++
++3. getScoutReport
++   Description: Run the Scout — scan all Gemini markets, find the top movers up and down, read live news for each, and return a ranked intelligence report. Use this when the user asks what is hot, what is moving, what they should watch, or for a market overview.
++   Parameters: none
++
++4. evaluateStrategies
++   Description: Evaluate all active trading strategies against the current market. Returns which strategies have their conditions met and which are not triggered. Use when the user asks if any strategies are triggered, what their rules are doing, or for a strategy status check.
++   Parameters: none
++
++5. executeTrade
++   Description: Execute a real, live buy or sell trade on the Gemini Exchange. The USD amount determines the size of the trade. Use this when the user explicitly asks to buy or sell an asset.
++   Parameters:
++     - symbol (string, required): The trading pair symbol without USD, e.g. BTC or ETH
++     - side (string, required): Either "buy" or "sell"
++     - usdAmount (number, required): The dollar amount to trade.
++
++IMPORTANT:
++- When you want to call a tool, output ONLY the JSON object. Do not add markdown formatting, explanation text, or code fences.
++- When you are ready to answer the user, respond with plain text (NOT JSON).
++- Do not call more than 5 tools in total for a single user request.`;
++
++    // 2. Build the messages array for Kimi
++    let messages = [{ role: 'system', content: systemPrompt }];
+ 
+-    // 2. The Agentic Loop
+-    let contents = [];
+     if (history && Array.isArray(history)) {
+-        contents = history.map(msg => ({
+-            role: msg.role === 'agent' ? 'model' : 'user',
+-            parts: [{ text: msg.content }]
++        const historyMessages = history.map(msg => ({
++            role: msg.role === 'agent' ? 'assistant' : msg.role,
++            content: msg.content
+         }));
++        messages.push(...historyMessages);
+     }
+-    contents.push({ role: 'user', parts: [{ text: prompt }] });
++    messages.push({ role: 'user', content: prompt });
++
++    // 3. The Agentic Loop
+     let finalResponseText = '';
+     let isAgentDone = false;
+-    let maxLoops = 5; // Prevent infinite loops
++    const maxLoops = 5; // Prevent infinite loops
+     let loops = 0;
+ 
+     while (!isAgentDone && loops < maxLoops) {
+         loops++;
+-        const aiResponse = await ai.models.generateContent({
+-            model: 'gemini-2.5-flash',
+-            contents: contents,
+-            config: { tools, systemInstruction }
+-        });
++        const response = await kimi.chat(messages, { temperature: 0.3 });
++
++        // Try to parse the response as a tool call
++        let toolCall = null;
++        try {
++            const parsed = JSON.parse(response.trim());
++            if (parsed.tool && typeof parsed.tool === 'string') {
++                toolCall = parsed;
++            }
++        } catch {
++            // Not valid JSON — treat as plain text (final response)
++        }
+ 
+-        // Did the AI decide to use a tool?
+-        if (aiResponse.functionCalls && aiResponse.functionCalls.length > 0) {
+-            const functionCall = aiResponse.functionCalls[0];
+-            let functionResult = {};
++        if (toolCall) {
++            const toolName = toolCall.tool;
++            const toolParams = toolCall.parameters || {};
++            let toolResult = {};
+ 
+             try {
+-                await logAction(`Executing AI Tool: ${functionCall.name}`, true);
++                await logAction(`Executing AI Tool: ${toolName}`, true);
+                 
+-                if (functionCall.name === 'getAccountBalances') {
+-                    const balances = await geminiPrivateApiRequest('/v1/balances');
+-                    functionResult = { balances: balances.filter(b => parseFloat(b.amount) > 0) };
++                if (toolName === 'getAccountBalances') {
++                    const balances = await geminiExchangeApiRequest('/v1/balances');
++                    toolResult = { balances: balances.filter(b => parseFloat(b.amount) > 0) };
+                     await logAction(`Successfully retrieved portfolio balances.`);
+-                } else if (functionCall.name === 'getMarketTicker') {
+-                    const { symbol } = functionCall.args;
++                } else if (toolName === 'getMarketTicker') {
++                    const { symbol } = toolParams;
+                     const tickerData = await getTicker(symbol);
+-                    functionResult = { ticker: tickerData };
++                    toolResult = { ticker: tickerData };
+                     await logAction(`Fetched market data for ${symbol.toUpperCase()}.`);
+-                } else if (functionCall.name === 'getScoutReport') {
+-                    await logAction('🔭 Agent triggered Scout — scanning all markets + news...', true);
++                } else if (toolName === 'getScoutReport') {
++                    await logAction('Agent triggered Scout — scanning all markets + news...', true);
+                     // Call the Gemini public pricefeed directly instead of an internal self-call
+                     const pfRes = await fetch('https://api.gemini.com/v1/pricefeed');
+                     const pfData = await pfRes.json();
+@@ -187,23 +191,23 @@ CRITICAL EMERGENCY DIRECTIVES:
+                         }))
+                         .sort((a, b) => Math.abs(parseFloat(b.change24h)) - Math.abs(parseFloat(a.change24h)))
+                         .slice(0, 12);
+-                    functionResult = { topMovers };
+-                    await logAction(`✅ Scout returned ${topMovers.length} top movers for AI analysis.`);
+-                } else if (functionCall.name === 'evaluateStrategies') {
+-                    await logAction('⚡ Agent evaluating all active strategies...', true);
++                    toolResult = { topMovers };
++                    await logAction(`Scout returned ${topMovers.length} top movers for AI analysis.`);
++                } else if (toolName === 'evaluateStrategies') {
++                    await logAction('Agent evaluating all active strategies...', true);
+                     const evalRes = await fetch(`https://${req.headers.host}/api/evaluate`);
+                     if (!evalRes.ok) throw new Error('Strategy evaluation API failed');
+                     const evalData = await evalRes.json();
+-                    functionResult = evalData;
+-                    await logAction(`✅ Strategy eval complete: ${evalData.triggered?.length || 0} triggered out of ${evalData.evaluated} active.`);
+-                } else if (functionCall.name === 'executeTrade') {
+-                    const { symbol, side, usdAmount } = functionCall.args;
+-                    await logAction(`🤖 Agent attempting to ${side.toUpperCase()} $${usdAmount} of ${symbol}...`, true);
++                    toolResult = evalData;
++                    await logAction(`Strategy eval complete: ${evalData.triggered?.length || 0} triggered out of ${evalData.evaluated} active.`);
++                } else if (toolName === 'executeTrade') {
++                    const { symbol, side, usdAmount } = toolParams;
++                    await logAction(`Agent attempting to ${side.toUpperCase()} $${usdAmount} of ${symbol}...`, true);
+                     
+                     const { executeTrade } = await import('../lib/trade.js');
+                     const tradeData = await executeTrade(symbol, side, usdAmount);
+                     
+-                    functionResult = { 
++                    toolResult = { 
+                       success: true, 
+                       executed_amount: tradeData.executed_amount,
+                       price: tradeData.price,
+@@ -211,21 +215,23 @@ CRITICAL EMERGENCY DIRECTIVES:
+                       fee_amount: tradeData.fee_amount,
+                       fee_currency: tradeData.fee_currency
+                     };
++                } else {
++                    toolResult = { error: `Unknown tool: ${toolName}` };
+                 }
+             } catch (apiError) {
+-                await logAction(`Tool Error (${functionCall.name}): ${apiError.message}`);
+-                functionResult = { error: apiError.message };
++                await logAction(`Tool Error (${toolName}): ${apiError.message}`);
++                toolResult = { error: apiError.message };
+             }
+ 
+             // Append the model's tool request to the conversation history
+-            contents.push({ role: 'model', parts: [{ functionCall }] });
++            messages.push({ role: 'assistant', content: response.trim() });
+             // Append the actual tool data back to the conversation history
+-            contents.push({ role: 'user', parts: [{ functionResponse: { name: functionCall.name, response: functionResult } }] });
++            messages.push({ role: 'user', content: `Tool result for "${toolName}": ${JSON.stringify(toolResult)}` });
+             
+             // Loop restarts so the AI can decide if it needs to call another tool!
+         } else {
+             // The AI didn't call any tools, meaning it is finally ready to speak to the user!
+-            finalResponseText = aiResponse.text || "No response generated.";
++            finalResponseText = response || "No response generated.";
+             isAgentDone = true;
+         }
+     }
+diff --git a/api/generate-strategy.js b/api/generate-strategy.js
+index fc1a177..8c5b2c0 100644
+--- a/api/generate-strategy.js
++++ b/api/generate-strategy.js
+@@ -1,4 +1,4 @@
+-import { GoogleGenAI } from '@google/genai';
++import createKimiClient from '../lib/ai-client.js';
+ import { getLastScoutReport, getSettings } from '../lib/db.js';
+ 
+ export default async function handler(req, res) {
+@@ -10,7 +10,7 @@ export default async function handler(req, res) {
+   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+ 
+   try {
+-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_AI_API_KEY });
++    const kimi = createKimiClient();
+ 
+     // Load last Scout report for context (may be empty if Scout hasn't run yet)
+     const lastScout = await getLastScoutReport();
+@@ -60,7 +60,7 @@ Available condition types (use ONLY these exact values):
+ - scout_risk_high (no extra fields)
+ 
+ Available assets: BTC, ETH, SOL, XRP, LINK, DOGE, LTC, AVAX, BCH
+-- You must output raw, valid JSON only. No markdown formatting (```json) or conversational text.
++- You must output raw, valid JSON only. No markdown formatting (\`\`\`json) or conversational text.
+ - Conditions must use actual current prices or reasonable threshold offsets.
+ - EMERGENCY GUARDRAIL 1: You may ONLY generate strategies for highly liquid assets (BTC, ETH, SOL, XRP, LINK, DOGE, LTC, AVAX, BCH). Do not use any other coin.
+ - EMERGENCY GUARDRAIL 2: Every strategy MUST include an aggressive condition to cut losses (e.g., price_drop_pct of 5%).
+@@ -84,16 +84,7 @@ Return ONLY valid JSON — no markdown, no explanation outside the JSON:
+   "notes": "string"
+ }`;
+ 
+-    const aiResponse = await ai.models.generateContent({
+-      model: 'gemini-2.5-pro',
+-      contents: prompt,
+-    });
+-
+-    let rawText = aiResponse.text.trim();
+-    // Strip markdown fences if present
+-    rawText = rawText.replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
+-
+-    const strategy = JSON.parse(rawText);
++    const strategy = await kimi.chatJSON([{ role: 'user', content: prompt }]);
+ 
+     // Validate and sanitize before returning
+     const VALID_CONDITIONS = ['price_drop_pct','price_rise_pct','price_below','price_above','change_exceeds','scout_bearish','scout_bullish','scout_risk_high'];
+diff --git a/api/null-commander.js b/api/null-commander.js
+index 2808c50..fc3d655 100644
+--- a/api/null-commander.js
++++ b/api/null-commander.js
+@@ -1,4 +1,4 @@
+-import { GoogleGenAI } from '@google/genai';
++import createKimiClient from '../lib/ai-client.js';
+ import { getRecentLogs, getSettings, updateSettings, logAction } from '../lib/db.js';
+ 
+ /**
+@@ -8,7 +8,7 @@ import { getRecentLogs, getSettings, updateSettings, logAction } from '../lib/db
+  * the coachNotes field so CIPHER adjusts tactics on its next 5-min cycle.
+  */
+ export async function runNullCommander() {
+-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_AI_API_KEY });
++  const kimi = createKimiClient();
+ 
+   const [logs, settings] = await Promise.all([
+     getRecentLogs(60),
+@@ -149,12 +149,7 @@ Based ONLY on the data above, write a single coachNotes directive for CIPHER.
+ Return ONLY the raw directive string. No JSON. No markdown. No explanation. Just the directive.`;
+ 
+ 
+-  const aiRes = await ai.models.generateContent({
+-    model: 'gemini-2.5-flash',
+-    contents: prompt,
+-  });
+-
+-  const directive = aiRes.text.trim();
++  const directive = await kimi.chat([{ role: 'user', content: prompt }]);
+ 
+   // Write NULL's directive directly to coachNotes — full autonomous override
+   await updateSettings({ coachNotes: directive });
+@@ -164,4 +159,3 @@ Return ONLY the raw directive string. No JSON. No markdown. No explanation. Just
+ 
+   return directive;
+ }
+-
+diff --git a/api/rollup.js b/api/rollup.js
+index 1794528..2364795 100644
+--- a/api/rollup.js
++++ b/api/rollup.js
+@@ -1,4 +1,4 @@
+-import { GoogleGenAI } from '@google/genai';
++import createKimiClient from '../lib/ai-client.js';
+ import { getRecentLogs, getSettings, updateSettings } from '../lib/db.js';
+ 
+ export default async function handler(req, res) {
+@@ -16,7 +16,7 @@ export default async function handler(req, res) {
+     // NOTE: Rollup and Macro Ledgers are MEMORY systems — they run regardless of autopilot state.
+     // Only the Mission Tracker is skipped if there is no active mission directive.
+     // Never gate memory accumulation on the autopilot toggle.
+-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_AI_API_KEY });
++    const kimi = createKimiClient();
+     const logs = await getRecentLogs();
+ 
+ 
+@@ -51,8 +51,7 @@ ${JSON.stringify(recentLogs, null, 2)}
+ Provide a concise 2-sentence tactical progress report on the Mission Directive. Are we on track or falling behind? Fee data is pre-calculated above — use it directly, do not recalculate from logs.
+ Speak in the first-person as the AI. Do not use markdown fences.`;
+ 
+-      const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+-      const assessmentText = aiRes.text.trim();
++      const assessmentText = await kimi.chat([{ role: 'user', content: prompt }]);
+ 
+       const currentAssessments = settings.missionAssessments || [];
+       const newAssessment = { timestamp: new Date().toISOString(), text: assessmentText };
+@@ -86,8 +85,7 @@ Identify overarching market shifts. What strategies failed or succeeded? Referen
+ State clearly how you will permanently adjust strategy to learn from these trends.
+ Speak in the first-person as the AI. Do not use markdown fences. Keep it to 1 concise paragraph.`;
+ 
+-      const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-pro', contents: prompt });
+-      const ledgerText = aiRes.text.trim();
++      const ledgerText = await kimi.chat([{ role: 'user', content: prompt }]);
+ 
+       const currentLedgers = settings.macroLedgers || [];
+       const newLedger = { timestamp: new Date().toISOString(), type: task.toUpperCase(), text: ledgerText };
+@@ -131,8 +129,7 @@ Explain how the market shifted over the last hour, what you learned from your su
+ The hourly fee total is pre-calculated above — reference it directly. Do NOT recalculate fees from the raw logs.
+ Speak in the first-person as the AI. Do not use markdown fences.`;
+ 
+-      const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
+-      const rollupText = aiRes.text.trim();
++      const rollupText = await kimi.chat([{ role: 'user', content: prompt }]);
+ 
+       const currentRollups = settings.cognitiveRollups || [];
+       const newRollup = { timestamp: new Date().toISOString(), text: rollupText };
+@@ -298,8 +295,7 @@ One concrete, specific, immediately actionable recommendation. Not "tune the par
+ 
+ Be blunt. Be specific. This is an audit, not a press release. If something is broken, say exactly what and show the evidence.`;
+ 
+-      const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-pro', contents: prompt });
+-      const analysisText = aiRes.text.trim();
++      const analysisText = await kimi.chat([{ role: 'user', content: prompt }]);
+ 
+       return res.status(200).json({ success: true, data, analysis: analysisText });
+     }
+@@ -312,4 +308,3 @@ Be blunt. Be specific. This is an audit, not a press release. If something is br
+     return res.status(500).json({ error: error.message });
+   }
+ }
+-
+diff --git a/api/scout.js b/api/scout.js
+index dba99a1..0e2288a 100644
+--- a/api/scout.js
++++ b/api/scout.js
+@@ -1,4 +1,4 @@
+-import { GoogleGenAI } from '@google/genai';
++import createKimiClient from '../lib/ai-client.js';
+ import { logAction, saveScoutReport, updateSettings } from '../lib/db.js';
+ import { runEvaluation } from '../lib/evaluator.js';
+ import { runNumNum } from '../lib/numnum.js';
+@@ -11,7 +11,7 @@ import { runNumNum } from '../lib/numnum.js';
+  *
+  * Returns { conflict: boolean, reason: string }
+  */
+-async function checkNullCipherSync(ai, nullDirective, cipherDecision) {
++async function checkNullCipherSync(kimi, nullDirective, cipherDecision) {
+   // If NULL has no directive yet, no conflict possible
+   if (!nullDirective || nullDirective.trim() === '') {
+     return { conflict: false, reason: 'No NULL directive active.' };
+@@ -45,12 +45,7 @@ Return ONLY valid JSON (no markdown):
+ { "conflict": true | false, "reason": "one sentence explanation" }`;
+ 
+   try {
+-    const res = await ai.models.generateContent({
+-      model: 'gemini-2.5-flash',
+-      contents: syncPrompt,
+-    });
+-    const raw = res.text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
+-    return JSON.parse(raw);
++    return await kimi.chatJSON([{ role: 'user', content: syncPrompt }]);
+   } catch (e) {
+     // If the sync check itself fails, fail safe — do NOT block the trade
+     console.warn('[Sync Validator] Check failed, allowing trade:', e.message);
+@@ -157,8 +152,8 @@ export async function runScoutMission() {
+ 
+     await logAction('🤖 Handing market data to AI Scout for analysis...');
+ 
+-    // Step 4: Call Gemini AI
+-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_AI_API_KEY });
++    // Step 4: Initialize Kimi K2.6 client
++    const kimi = createKimiClient();
+ 
+     const scoutPrompt = `You are a crypto market scout. You are the intelligence arm of an autonomous fund that ONLY trades 9 core assets (BTC, ETH, SOL, XRP, LINK, DOGE, LTC, AVAX, BCH).
+ 
+@@ -179,18 +174,10 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
+ - "analystNote": string (your one-sentence key insight combining price action and Kent's briefing — focus on whether this is a good entry/exit opportunity)
+ - "riskLevel": "low" | "medium" | "high"`;
+ 
+-    const aiResponse = await ai.models.generateContent({
+-      model: 'gemini-2.5-flash',
+-      contents: scoutPrompt
+-    });
+-
+     // Step 5: Parse the AI's JSON response
+     let scoutReport = [];
+     try {
+-      let rawText = aiResponse.text.trim();
+-      // Strip any accidental markdown code fences
+-      rawText = rawText.replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
+-      scoutReport = JSON.parse(rawText);
++      scoutReport = await kimi.chatJSON([{ role: 'user', content: scoutPrompt }]);
+     } catch (parseErr) {
+       // If AI response can't be parsed, fall back to raw market data
+       await logAction('⚠️ Scout AI parse error — returning raw market data.');
+@@ -525,13 +512,7 @@ If you evaluate your Portfolio Balances and determine that your Mission Directiv
+ - When in doubt, return "stuck" or "hold". Never "fail" unless the fund is genuinely wiped out.
+ If you are stuck, say so clearly in your reasoning so Tank can read your distress signal.`;
+ 
+-        const apRes = await ai.models.generateContent({
+-          model: 'gemini-2.5-pro',
+-          contents: autopilotPrompt
+-        });
+-        
+-        let rawApText = apRes.text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
+-        const apDecision = JSON.parse(rawApText);
++        const apDecision = await kimi.chatJSON([{ role: 'user', content: autopilotPrompt }]);
+ 
+         // ── PROTOCOL PROPOSAL HANDLER ──────────────────────────────────
+         // If CIPHER proposed a protocol this cycle, save it to DB as 'pending'.
+@@ -630,7 +611,7 @@ If you are stuck, say so clearly in your reasoning so Tank can read your distres
+             if (!buyBlocked) {
+            // ── BIG JON CONFLICT CHECK ──────────────────────────────────────────
+            // Big Jon steps in before any trade. If CIPHER and NULL are out of sync, he stops the fight.
+-           const sync = await checkNullCipherSync(ai, settings.coachNotes, apDecision);
++           const sync = await checkNullCipherSync(kimi, settings.coachNotes, apDecision);
+            if (sync.conflict) {
+              // Big Jon blocks the trade — but does NOT kill autopilot.
+              // A conflict is a temporary misalignment, not an emergency.
+@@ -741,7 +722,7 @@ If you are stuck, say so clearly in your reasoning so Tank can read your distres
+                cipherDistressFlag: true,
+                cipherDistressReason: `CIPHER declared fail (overridden): ${apDecision.reasoning}`,
+                cipherDistressAt: new Date().toISOString(),
+-             });
++            });
+            }
+         } else {
+            await logAction(`🧠 Autopilot Decision: HOLD. Reason: ${apDecision.reasoning}`);
+diff --git a/api/tank.js b/api/tank.js
+index 9294416..c2bc26e 100644
+--- a/api/tank.js
++++ b/api/tank.js
+@@ -1,4 +1,4 @@
+-import { GoogleGenAI } from '@google/genai';
++import createKimiClient from '../lib/ai-client.js';
+ import { getSettings, updateSettings, logAction, getRecentLogs } from '../lib/db.js';
+ 
+ /**
+@@ -17,7 +17,7 @@ import { getSettings, updateSettings, logAction, getRecentLogs } from '../lib/db
+  * Tank sees the whole battlefield from above.
+  */
+ export async function runTank() {
+-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_AI_API_KEY });
++  const kimi = createKimiClient();
+ 
+   const [settings, recentLogs] = await Promise.all([
+     getSettings(),
+@@ -235,16 +235,9 @@ Return ONLY valid JSON (no markdown, no code blocks):
+   "regimeDetected": "trending_bull | trending_bear | ranging | high_volatility"
+ }`;
+ 
+-  const aiRes = await ai.models.generateContent({
+-    model: 'gemini-2.5-flash',
+-    contents: tankPrompt,
+-  });
+-
+-  // ── Parse Tank's response ─────────────────────────────────────────────────
+   let tankOutput;
+   try {
+-    const raw = aiRes.text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
+-    tankOutput = JSON.parse(raw);
++    tankOutput = await kimi.chatJSON([{ role: 'user', content: tankPrompt }]);
+   } catch (e) {
+     await logAction(`⚠️ Tank AI parse error: ${e.message} — keeping current mission.`);
+     tankOutput = {
+@@ -464,13 +457,7 @@ For each protocol, respond with a JSON array. Each entry must have:
+ 
+ Return ONLY the JSON array. No markdown. No explanation outside the array.`;
+ 
+-      const reviewRes = await ai.models.generateContent({
+-        model: 'gemini-2.5-flash',
+-        contents: reviewPrompt,
+-      });
+-
+-      let reviewRaw = reviewRes.text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
+-      const reviews = JSON.parse(reviewRaw);
++      const reviews = await kimi.chatJSON([{ role: 'user', content: reviewPrompt }]);
+ 
+       if (Array.isArray(reviews)) {
+         for (const review of reviews) {
+@@ -578,4 +565,3 @@ export default async function handler(req, res) {
+     return res.status(500).json({ error: e.message });
+   }
+ }
+-
+diff --git a/lib/ai-client.js b/lib/ai-client.js
+new file mode 100644
+index 0000000..4213206
+--- /dev/null
++++ b/lib/ai-client.js
+@@ -0,0 +1,486 @@
++/**
++ * Production-grade Kimi K2.6 API client wrapper.
++ *
++ * Zero-dependency, native fetch only (Node 18+). ES module.
++ * OpenAI-compatible chat completions with retry, timeout,
++ * JSON mode, debug logging and structured error types.
++ *
++ * @example
++ *   import createKimiClient from './ai-client.js';
++ *   const kimi = createKimiClient({ apiKey: process.env.KIMI_API_KEY });
++ *   const reply = await kimi.chat([{ role: 'user', content: 'Hello' }]);
++ */
++
++// ---------------------------------------------------------------------------
++// Constants
++// ---------------------------------------------------------------------------
++
++const DEFAULT_BASE_URL = 'https://api.moonshot.cn/v1';
++const DEFAULT_MODEL    = 'kimi-k2-6';
++const DEFAULT_TIMEOUT  = 60_000;      // 60 seconds
++const DEFAULT_RETRIES  = 3;
++const INITIAL_BACKOFF  = 1_000;       // 1 second
++
++// ---------------------------------------------------------------------------
++// Error types
++// ---------------------------------------------------------------------------
++
++/**
++ * Base error thrown by the Kimi client.
++ */
++export class KimiError extends Error {
++  constructor(message, { status, code, response, cause } = {}) {
++    super(message, { cause });
++    this.name    = 'KimiError';
++    this.status  = status  ?? null;
++    this.code    = code    ?? null;
++    this.response = response ?? null;
++
++    // Maintains proper stack trace for where our error was thrown (only available on V8)
++    if (Error.captureStackTrace) {
++      Error.captureStackTrace(this, this.constructor);
++    }
++  }
++}
++
++/**
++ * Authentication error (401 / 403).
++ */
++export class KimiAuthError extends KimiError {
++  constructor(message, meta) {
++    super(message, meta);
++    this.name = 'KimiAuthError';
++  }
++}
++
++/**
++ * Rate-limit error (429).  Includes the `retryAfter` value
++ * (in seconds) read from the `retry-after` response header.
++ */
++export class KimiRateLimitError extends KimiError {
++  constructor(message, meta = {}) {
++    super(message, meta);
++    this.name       = 'KimiRateLimitError';
++    this.retryAfter = meta.retryAfter ?? null;
++  }
++}
++
++/**
++ * Timeout / abort error.
++ */
++export class KimiTimeoutError extends KimiError {
++  constructor(message, meta) {
++    super(message, meta);
++    this.name = 'KimiTimeoutError';
++  }
++}
++
++// ---------------------------------------------------------------------------
++// Debug logger
++// ---------------------------------------------------------------------------
++
++const isDebug = () => process.env.KIMI_DEBUG === '1';
++
++function debug(label, data) {
++  if (!isDebug()) return;
++  const ts = new Date().toISOString();
++  if (data !== undefined) {
++    // Avoid printing huge payloads verbatim; summarise instead
++    let summary;
++    if (typeof data === 'string') {
++      summary = data.length > 500 ? data.slice(0, 500) + ' …' : data;
++    } else {
++      try {
++        summary = JSON.stringify(data, null, 2);
++        if (summary.length > 800) summary = summary.slice(0, 800) + '\n  …';
++      } catch {
++        summary = String(data);
++      }
++    }
++    // eslint-disable-next-line no-console
++    console.error(`[KIMI ${ts}] [${label}] ${summary}`);
++  } else {
++    // eslint-disable-next-line no-console
++    console.error(`[KIMI ${ts}] [${label}]`);
++  }
++}
++
++// ---------------------------------------------------------------------------
++// Utility helpers
++// ---------------------------------------------------------------------------
++
++/**
++ * Sleep for `ms` milliseconds.  Returns a Promise.
++ */
++function delay(ms) {
++  return new Promise(resolve => setTimeout(resolve, ms));
++}
++
++/**
++ * Extract a JSON object from free-form text.
++ *
++ * Strategy:
++ *   1. Try `JSON.parse(text)` directly.
++ *   2. Look for a JSON code block: ```json ... ```
++ *   3. Look for any code block: ``` ... ```
++ *   4. Greedy match of the first top-level `{ … }` or `[ … ]`.
++ *   5. Return `null` when nothing works.
++ *
++ * @param {string} text
++ * @returns {object|null}
++ */
++export function extractJSON(text) {
++  if (!text || typeof text !== 'string') return null;
++
++  const trimmed = text.trim();
++
++  // 1. Direct parse
++  try {
++    return JSON.parse(trimmed);
++  } catch {
++    /* continue */
++  }
++
++  // 2. Explicit ```json fence
++  const jsonBlockMatch = trimmed.match(/```json\s*([\s\S]*?)\s*```/i);
++  if (jsonBlockMatch) {
++    try {
++      return JSON.parse(jsonBlockMatch[1].trim());
++    } catch {
++      /* continue */
++    }
++  }
++
++  // 3. Generic ``` fence
++  const genericBlockMatch = trimmed.match(/```\s*([\s\S]*?)\s*```/);
++  if (genericBlockMatch) {
++    try {
++      return JSON.parse(genericBlockMatch[1].trim());
++    } catch {
++      /* continue */
++    }
++  }
++
++  // 4. Greedy object / array match (find first `{` or `[`)
++  const objMatch = trimmed.match(/(\{[\s\S]*\})/);
++  if (objMatch) {
++    try {
++      return JSON.parse(objMatch[1]);
++    } catch {
++      /* continue */
++    }
++  }
++
++  const arrMatch = trimmed.match(/(\[[\s\S]*\])/);
++  if (arrMatch) {
++    try {
++      return JSON.parse(arrMatch[1]);
++    } catch {
++      /* continue */
++    }
++  }
++
++  return null;
++}
++
++/**
++ * Build the exponential-backoff delay for a given retry attempt.
++ * Adds a random jitter of up to 200 ms.
++ */
++function backoffDelay(attempt, initialMs = INITIAL_BACKOFF) {
++  const jitter = Math.floor(Math.random() * 200);
++  return initialMs * 2 ** attempt + jitter;
++}
++
++// ---------------------------------------------------------------------------
++// Factory
++// ---------------------------------------------------------------------------
++
++/**
++ * Create a Kimi API client.
++ *
++ * @param {object}   [options]
++ * @param {string}   [options.apiKey]     – Bearer token (falls back to KIMI_API_KEY env var)
++ * @param {string}   [options.model]      – Model identifier (falls back to KIMI_MODEL, default kimi-k2-6)
++ * @param {string}   [options.baseURL]    – API root (falls back to KIMI_BASE_URL)
++ * @param {number}   [options.timeout]    – Per-request timeout in ms (falls back to KIMI_TIMEOUT_MS, default 60_000)
++ * @param {number}   [options.maxRetries] – Max retries for transient errors (falls back to KIMI_MAX_RETRIES, default 3)
++ *
++ * @returns {object} Client with `.chat()`, `.chatJSON()` and `.getModel()`.
++ */
++export default function createKimiClient(options = {}) {
++  // -- Resolve configuration ------------------------------------------------
++
++  const apiKey = options.apiKey ?? process.env.KIMI_API_KEY;
++  if (!apiKey) {
++    throw new KimiAuthError(
++      'Missing Kimi API key. Provide it via options.apiKey or the KIMI_API_KEY environment variable.',
++      { code: 'MISSING_API_KEY' }
++    );
++  }
++
++  const model      = options.model      ?? process.env.KIMI_MODEL      ?? DEFAULT_MODEL;
++  const baseURL    = options.baseURL    ?? process.env.KIMI_BASE_URL   ?? DEFAULT_BASE_URL;
++  const timeout    = options.timeout    ?? (Number(process.env.KIMI_TIMEOUT_MS) || DEFAULT_TIMEOUT);
++  const maxRetries = options.maxRetries ?? (Number(process.env.KIMI_MAX_RETRIES) || DEFAULT_RETRIES);
++
++  debug('init', {
++    model, baseURL, timeout, maxRetries,
++    apiKeyPrefix: apiKey.slice(0, 8) + '…',
++  });
++
++  // -- Shared helpers --------------------------------------------------------
++
++  /**
++   * Execute a single fetch request with AbortController timeout.
++   *
++   * @param {string} url
++   * @param {object} body   – JSON-serialisable request body
++   * @param {number} ms     – Abort timeout in ms
++   */
++  async function fetchWithTimeout(url, body, ms) {
++    const controller = new AbortController();
++    const timer      = setTimeout(() => controller.abort(), ms);
++
++    try {
++      const response = await fetch(url, {
++        method:  'POST',
++        headers: {
++          'Content-Type':  'application/json',
++          'Authorization': `Bearer ${apiKey}`,
++        },
++        body:    JSON.stringify(body),
++        signal:  controller.signal,
++      });
++      return response;
++    } finally {
++      clearTimeout(timer);
++    }
++  }
++
++  /**
++   * Parse an HTTP error response body and throw the appropriate KimiError.
++   */
++  async function throwForStatus(response) {
++    const status  = response.status;
++    let   payload = null;
++    let   text    = '';
++
++    try {
++      text    = await response.text();
++      payload = JSON.parse(text);
++    } catch {
++      payload = null;
++    }
++
++    const message = payload?.error?.message
++      ?? payload?.error?.code
++      ?? payload?.message
++      ?? text?.slice(0, 300)
++      ?? `HTTP ${status}`;
++
++    const meta = {
++      status,
++      code: payload?.error?.code ?? null,
++      response: payload ?? text,
++    };
++
++    if (status === 401 || status === 403) {
++      throw new KimiAuthError(`Kimi auth error (${status}): ${message}`, meta);
++    }
++
++    if (status === 429) {
++      const retryAfterRaw = response.headers.get('retry-after');
++      const retryAfter    = retryAfterRaw ? parseInt(retryAfterRaw, 10) : null;
++      throw new KimiRateLimitError(
++        `Kimi rate limit (429): ${message}`,
++        { ...meta, retryAfter }
++      );
++    }
++
++    throw new KimiError(`Kimi API error (${status}): ${message}`, meta);
++  }
++
++  /**
++   * Core request helper — handles retries, timeout and error classification.
++   *
++   * @param {string}   endpoint   – e.g. '/chat/completions'
++   * @param {object}   body
++   * @param {number}   [reqTimeout]  – Optional per-request override
++   */
++  async function request(endpoint, body, reqTimeout) {
++    const url        = `${baseURL.replace(/\/+$/, '')}${endpoint}`;
++    const effectiveTimeout = reqTimeout ?? timeout;
++
++    debug('request', { url, body });
++
++    for (let attempt = 0; attempt <= maxRetries; attempt++) {
++      try {
++        const response = await fetchWithTimeout(url, body, effectiveTimeout);
++
++        if (!response.ok) {
++          await throwForStatus(response);
++        }
++
++        const data = await response.json();
++        debug('response', data);
++        return data;
++      } catch (err) {
++        const isAbort = err.name === 'AbortError'
++          || (typeof err.message === 'string' && err.message.includes('aborted'));
++
++        if (isAbort) {
++          throw new KimiTimeoutError(
++            `Request timed out after ${effectiveTimeout}ms (attempt ${attempt + 1}/${maxRetries + 1})`,
++            { cause: err }
++          );
++        }
++
++        // Non-retryable errors — propagate immediately
++        if (err instanceof KimiAuthError) throw err;
++
++        // Rate-limit: retry if we have attempts left (with backoff or header delay)
++        if (err instanceof KimiRateLimitError) {
++          if (attempt >= maxRetries) throw err;
++          const waitMs = err.retryAfter
++            ? err.retryAfter * 1_000
++            : backoffDelay(attempt);
++          debug('retry', `Rate-limited, waiting ${waitMs}ms before attempt ${attempt + 2}`);
++          await delay(waitMs);
++          continue;
++        }
++
++        // 5xx / network errors — retry with exponential backoff
++        const isRetryable = err instanceof KimiError && err.status >= 500;
++        if (!isRetryable && attempt === 0 && !(err instanceof KimiError)) {
++          // Non-KimiError on first attempt (likely network/DNS) — treat as retryable
++          if (attempt >= maxRetries) throw err;
++        } else if (!isRetryable) {
++          throw err;
++        }
++
++        if (attempt >= maxRetries) {
++          throw new KimiError(
++            `Max retries (${maxRetries}) exceeded. Last error: ${err.message}`,
++            { status: err.status ?? null, cause: err }
++          );
++        }
++
++        const waitMs = backoffDelay(attempt);
++        debug('retry', `Transient error (${err.status ?? 'N/A'}), waiting ${waitMs}ms before attempt ${attempt + 2}`);
++        await delay(waitMs);
++      }
++    }
++
++    // Unreachable — kept for safety
++    throw new KimiError('Unexpected end of retry loop');
++  }
++
++  // -- Public API ------------------------------------------------------------
++
++  return {
++    /**
++     * Send a chat completion request and return the assistant's text.
++     *
++     * @param {Array<{role:string,content:string}>} messages
++     * @param {object} [options]
++     * @param {number} [options.temperature] – 0–2
++     * @param {number} [options.maxTokens]   – Max completion tokens
++     * @param {number} [options.timeout]     – Per-request timeout override (ms)
++     * @returns {Promise<string>} Assistant reply
++     */
++    async chat(messages, options = {}) {
++      if (!Array.isArray(messages) || messages.length === 0) {
++        throw new KimiError('chat() requires a non-empty array of messages', { code: 'INVALID_ARGUMENTS' });
++      }
++
++      const body = {
++        model,
++        messages,
++        ...(options.temperature !== undefined && { temperature: options.temperature }),
++        ...(options.maxTokens   !== undefined && { max_tokens:   options.maxTokens }),
++      };
++
++      const data = await request('/chat/completions', body, options.timeout);
++
++      const choice  = data.choices?.[0];
++      const content = choice?.message?.content;
++
++      if (typeof content !== 'string') {
++        throw new KimiError(
++          'Unexpected response shape: missing choices[0].message.content',
++          { response: data, code: 'UNEXPECTED_RESPONSE' }
++        );
++      }
++
++      return content;
++    },
++
++    /**
++     * Send a chat completion request with JSON mode and return the parsed object.
++     *
++     * @param {Array<{role:string,content:string}>} messages
++     * @param {object} [options]
++     * @param {number} [options.temperature]
++     * @param {number} [options.maxTokens]
++     * @param {number} [options.timeout]
++     * @returns {Promise<object>} Parsed JSON object
++     */
++    async chatJSON(messages, options = {}) {
++      if (!Array.isArray(messages) || messages.length === 0) {
++        throw new KimiError('chatJSON() requires a non-empty array of messages', { code: 'INVALID_ARGUMENTS' });
++      }
++
++      const body = {
++        model,
++        messages,
++        response_format: { type: 'json_object' },
++        ...(options.temperature !== undefined && { temperature: options.temperature }),
++        ...(options.maxTokens   !== undefined && { max_tokens:   options.maxTokens }),
++      };
++
++      const data    = await request('/chat/completions', body, options.timeout);
++      const choice  = data.choices?.[0];
++      const rawText = choice?.message?.content;
++
++      if (typeof rawText !== 'string') {
++        throw new KimiError(
++          'Unexpected response shape in JSON mode',
++          { response: data, code: 'UNEXPECTED_RESPONSE' }
++        );
++      }
++
++      debug('chatJSON raw', rawText);
++
++      // Primary parse
++      let parsed;
++      try {
++        parsed = JSON.parse(rawText);
++      } catch {
++        parsed = null;
++      }
++
++      // Fallback extraction via regex / fence extraction
++      if (parsed === null) {
++        parsed = extractJSON(rawText);
++      }
++
++      if (parsed === null) {
++        throw new KimiError(
++          `Failed to parse JSON response. Raw text:\n${rawText.slice(0, 2_000)}`,
++          { code: 'JSON_PARSE_ERROR' }
++        );
++      }
++
++      return parsed;
++    },
++
++    /**
++     * Return the model name currently in use.
++     * @returns {string}
++     */
++    getModel() {
++      return model;
++    },
++  };
++}

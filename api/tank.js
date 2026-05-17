@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import createKimiClient from '../lib/ai-client.js';
 import { getSettings, updateSettings, logAction, getRecentLogs } from '../lib/db.js';
 
 /**
@@ -17,7 +17,7 @@ import { getSettings, updateSettings, logAction, getRecentLogs } from '../lib/db
  * Tank sees the whole battlefield from above.
  */
 export async function runTank() {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_AI_API_KEY });
+  const kimi = createKimiClient();
 
   const [settings, recentLogs] = await Promise.all([
     getSettings(),
@@ -235,16 +235,9 @@ Return ONLY valid JSON (no markdown, no code blocks):
   "regimeDetected": "trending_bull | trending_bear | ranging | high_volatility"
 }`;
 
-  const aiRes = await ai.models.generateContent({
-    model: 'gemini-2.5-flash',
-    contents: tankPrompt,
-  });
-
-  // ── Parse Tank's response ─────────────────────────────────────────────────
   let tankOutput;
   try {
-    const raw = aiRes.text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
-    tankOutput = JSON.parse(raw);
+    tankOutput = await kimi.chatJSON([{ role: 'user', content: tankPrompt }]);
   } catch (e) {
     await logAction(`⚠️ Tank AI parse error: ${e.message} — keeping current mission.`);
     tankOutput = {
@@ -464,13 +457,7 @@ For each protocol, respond with a JSON array. Each entry must have:
 
 Return ONLY the JSON array. No markdown. No explanation outside the array.`;
 
-      const reviewRes = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: reviewPrompt,
-      });
-
-      let reviewRaw = reviewRes.text.trim().replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
-      const reviews = JSON.parse(reviewRaw);
+      const reviews = await kimi.chatJSON([{ role: 'user', content: reviewPrompt }]);
 
       if (Array.isArray(reviews)) {
         for (const review of reviews) {
@@ -578,4 +565,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: e.message });
   }
 }
-

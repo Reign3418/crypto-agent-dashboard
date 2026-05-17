@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import createKimiClient from '../lib/ai-client.js';
 import { getRecentLogs, getSettings, updateSettings } from '../lib/db.js';
 
 export default async function handler(req, res) {
@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     // NOTE: Rollup and Macro Ledgers are MEMORY systems — they run regardless of autopilot state.
     // Only the Mission Tracker is skipped if there is no active mission directive.
     // Never gate memory accumulation on the autopilot toggle.
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_AI_API_KEY });
+    const kimi = createKimiClient();
     const logs = await getRecentLogs();
 
 
@@ -51,8 +51,7 @@ ${JSON.stringify(recentLogs, null, 2)}
 Provide a concise 2-sentence tactical progress report on the Mission Directive. Are we on track or falling behind? Fee data is pre-calculated above — use it directly, do not recalculate from logs.
 Speak in the first-person as the AI. Do not use markdown fences.`;
 
-      const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
-      const assessmentText = aiRes.text.trim();
+      const assessmentText = await kimi.chat([{ role: 'user', content: prompt }]);
 
       const currentAssessments = settings.missionAssessments || [];
       const newAssessment = { timestamp: new Date().toISOString(), text: assessmentText };
@@ -86,8 +85,7 @@ Identify overarching market shifts. What strategies failed or succeeded? Referen
 State clearly how you will permanently adjust strategy to learn from these trends.
 Speak in the first-person as the AI. Do not use markdown fences. Keep it to 1 concise paragraph.`;
 
-      const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-pro', contents: prompt });
-      const ledgerText = aiRes.text.trim();
+      const ledgerText = await kimi.chat([{ role: 'user', content: prompt }]);
 
       const currentLedgers = settings.macroLedgers || [];
       const newLedger = { timestamp: new Date().toISOString(), type: task.toUpperCase(), text: ledgerText };
@@ -131,8 +129,7 @@ Explain how the market shifted over the last hour, what you learned from your su
 The hourly fee total is pre-calculated above — reference it directly. Do NOT recalculate fees from the raw logs.
 Speak in the first-person as the AI. Do not use markdown fences.`;
 
-      const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents: prompt });
-      const rollupText = aiRes.text.trim();
+      const rollupText = await kimi.chat([{ role: 'user', content: prompt }]);
 
       const currentRollups = settings.cognitiveRollups || [];
       const newRollup = { timestamp: new Date().toISOString(), text: rollupText };
@@ -298,8 +295,7 @@ One concrete, specific, immediately actionable recommendation. Not "tune the par
 
 Be blunt. Be specific. This is an audit, not a press release. If something is broken, say exactly what and show the evidence.`;
 
-      const aiRes = await ai.models.generateContent({ model: 'gemini-2.5-pro', contents: prompt });
-      const analysisText = aiRes.text.trim();
+      const analysisText = await kimi.chat([{ role: 'user', content: prompt }]);
 
       return res.status(200).json({ success: true, data, analysis: analysisText });
     }
@@ -312,4 +308,3 @@ Be blunt. Be specific. This is an audit, not a press release. If something is br
     return res.status(500).json({ error: error.message });
   }
 }
-

@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import createKimiClient from '../lib/ai-client.js';
 import { getLastScoutReport, getSettings } from '../lib/db.js';
 
 export default async function handler(req, res) {
@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_AI_API_KEY });
+    const kimi = createKimiClient();
 
     // Load last Scout report for context (may be empty if Scout hasn't run yet)
     const lastScout = await getLastScoutReport();
@@ -60,7 +60,7 @@ Available condition types (use ONLY these exact values):
 - scout_risk_high (no extra fields)
 
 Available assets: BTC, ETH, SOL, XRP, LINK, DOGE, LTC, AVAX, BCH
-- You must output raw, valid JSON only. No markdown formatting (```json) or conversational text.
+- You must output raw, valid JSON only. No markdown formatting (\`\`\`json) or conversational text.
 - Conditions must use actual current prices or reasonable threshold offsets.
 - EMERGENCY GUARDRAIL 1: You may ONLY generate strategies for highly liquid assets (BTC, ETH, SOL, XRP, LINK, DOGE, LTC, AVAX, BCH). Do not use any other coin.
 - EMERGENCY GUARDRAIL 2: Every strategy MUST include an aggressive condition to cut losses (e.g., price_drop_pct of 5%).
@@ -84,16 +84,7 @@ Return ONLY valid JSON — no markdown, no explanation outside the JSON:
   "notes": "string"
 }`;
 
-    const aiResponse = await ai.models.generateContent({
-      model: 'gemini-2.5-pro',
-      contents: prompt,
-    });
-
-    let rawText = aiResponse.text.trim();
-    // Strip markdown fences if present
-    rawText = rawText.replace(/^```json?\s*/i, '').replace(/```\s*$/i, '').trim();
-
-    const strategy = JSON.parse(rawText);
+    const strategy = await kimi.chatJSON([{ role: 'user', content: prompt }]);
 
     // Validate and sanitize before returning
     const VALID_CONDITIONS = ['price_drop_pct','price_rise_pct','price_below','price_above','change_exceeds','scout_bearish','scout_bullish','scout_risk_high'];
