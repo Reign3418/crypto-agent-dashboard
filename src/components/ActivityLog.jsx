@@ -120,8 +120,7 @@ export default function ActivityLog({ isHalted, minimal = false }) {
       if (activeFilter.levels && !activeFilter.levels.includes(log._cls.level)) return false;
       if (search && !log.action?.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
-    })
-    .reverse(); // newest first — no scrolling needed
+    }); // API returns newest-first (ScanIndexForward: false) — do NOT reverse
 
   const counts = logs.reduce((acc, log) => {
     const cls = classifyLog(log.action);
