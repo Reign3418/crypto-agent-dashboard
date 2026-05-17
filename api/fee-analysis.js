@@ -53,7 +53,7 @@ function parseTradeLine(log) {
   // e.g. "BUY 0.12345678 LTC for ~$14.97"
   const amtMatch  = text.match(/(?:BUY|SELL)\s+([\d.]+)\s+([A-Z]+)\s+for/);
   const usdMatch  = text.match(/for ~\$([\d.]+)/);
-  const feeMatch  = text.match(/Fee:\s+\$([\d.]+)/);
+  const feeMatch  = text.match(/Fee:\s+\$?([\d.]+)/);   // handles both "Fee: $0.06" and "Fee: 0.0400 USD"
   const fillMatch = text.match(/Fill:\s+\$([\d.]+)/);
 
   const coinAmount = amtMatch  ? parseFloat(amtMatch[1])  : null;

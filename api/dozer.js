@@ -70,7 +70,7 @@ function parseTrades(logs) {
 
     const amountMatch = text.match(/(?:BUY|SELL)\s+([\d.]+)\s+([A-Z]+)\s+for/);
     const usdMatch    = text.match(/for ~\$([\d.]+)/);
-    const feeMatch    = text.match(/Fee:\s+\$([\d.]+)/);
+    const feeMatch    = text.match(/Fee:\s+\$?([\d.]+)/);  // matches both "Fee: $0.06" and "Fee: 0.0400 USD"
     const fillMatch   = text.match(/Fill:\s+\$([\d.]+)/);
 
     const amount    = amountMatch ? parseFloat(amountMatch[1]) : 0;
