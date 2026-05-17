@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 
 // ── Log Classification Engine ─────────────────────────────────────────────
 const classifyLog = (action = '') => {
@@ -71,9 +71,9 @@ export default function ActivityLog({ isHalted, minimal = false }) {
   const [paused, setPaused]       = useState(false);
   const [search, setSearch]       = useState('');
   const [newCount, setNewCount]   = useState(0);
-  const bottomRef                 = useRef(null);
   const containerRef              = useRef(null);
   const pausedRef                 = useRef(false);
+  const [expanded, setExpanded]   = useState({});
 
   pausedRef.current = paused;
 
@@ -100,7 +100,12 @@ export default function ActivityLog({ isHalted, minimal = false }) {
     return () => clearInterval(interval);
   }, []);
 
-  // Auto-scroll removed — newest logs show at TOP so no scrolling ever needed
+  // Pin scroll to top whenever logs update or filter changes — newest entry always visible
+  useLayoutEffect(() => {
+    if (containerRef.current && !paused) {
+      containerRef.current.scrollTop = 0;
+    }
+  }, [logs, filter, search, paused]);
 
   const handleResume = () => {
     setPaused(false);
@@ -156,26 +161,35 @@ export default function ActivityLog({ isHalted, minimal = false }) {
       background: 'var(--bg-primary)', color: 'var(--text-primary)', width: '120px',
     },
     logList: {
-      flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column',
+      flex: 1, overflowY: 'auto',
     },
     logRow: (cls, hl) => ({
-      display: 'flex', gap: '8px', padding: '3px 8px',
+      display: 'flex', gap: '8px', padding: '4px 8px',
       borderLeft: `3px solid ${cls.color}`,
       background: hl ? `${cls.color}18` : 'transparent',
       borderBottom: '1px solid rgba(255,255,255,0.03)',
       alignItems: 'flex-start',
+      cursor: 'pointer',
     }),
     label: (color) => ({
       minWidth: '40px', fontSize: '0.65rem', fontWeight: 'bold',
-      color, opacity: 0.9, paddingTop: '1px', flexShrink: 0,
+      color, opacity: 0.9, paddingTop: '2px', flexShrink: 0,
     }),
     timestamp: {
       minWidth: '48px', color: 'var(--text-muted)', fontSize: '0.7rem',
-      paddingTop: '1px', flexShrink: 0,
+      paddingTop: '2px', flexShrink: 0,
     },
-    action: (color) => ({
-      color, flex: 1, lineHeight: '1.4', wordBreak: 'break-word',
+    action: (color, isExpanded) => ({
+      color, flex: 1, lineHeight: '1.5', wordBreak: 'break-word',
+      display: '-webkit-box',
+      WebkitLineClamp: isExpanded ? 'unset' : 3,
+      WebkitBoxOrient: 'vertical',
+      overflow: isExpanded ? 'visible' : 'hidden',
     }),
+    expandHint: {
+      fontSize: '0.6rem', color: 'var(--text-muted)', flexShrink: 0,
+      paddingTop: '2px', userSelect: 'none', opacity: 0.6,
+    },
     statusBar: {
       display: 'flex', gap: '12px', padding: '3px 8px', fontSize: '0.65rem',
       color: 'var(--text-muted)', borderTop: '1px solid var(--border-subtle)',
@@ -248,13 +262,25 @@ export default function ActivityLog({ isHalted, minimal = false }) {
             No logs match this filter.
           </div>
         ) : (
-          filteredLogs.map((log, i) => (
-            <div key={log.id || i} style={styles.logRow(log._cls, highlight.includes(log._cls.level))}>
-              <span style={styles.label(log._cls.color)}>{log._cls.label}</span>
-              <span style={styles.timestamp}>{log.time}</span>
-              <span style={styles.action(getActionColor(log._cls))}>{log.action}</span>
-            </div>
-          ))
+          filteredLogs.map((log, i) => {
+            const key = log.id || log.sk || i;
+            const isExpanded = !!expanded[key];
+            const isLong = (log.action || '').length > 120;
+            return (
+              <div
+                key={key}
+                style={styles.logRow(log._cls, highlight.includes(log._cls.level))}
+                onClick={() => isLong && setExpanded(prev => ({ ...prev, [key]: !prev[key] }))}
+              >
+                <span style={styles.label(log._cls.color)}>{log._cls.label}</span>
+                <span style={styles.timestamp}>{log.time}</span>
+                <span style={styles.action(getActionColor(log._cls), isExpanded)}>{log.action}</span>
+                {isLong && (
+                  <span style={styles.expandHint}>{isExpanded ? '▲' : '▼'}</span>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
 

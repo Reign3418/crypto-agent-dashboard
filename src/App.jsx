@@ -322,9 +322,8 @@ function App() {
           </div>
         )}
 
-        {/* LOGS TAB */}
         {activeTab === 'logs' && (
-          <div style={{ flex: 1, overflow: 'auto', padding: '16px' }}>
+          <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <ActivityLog isHalted={isHalted} />
           </div>
         )}
