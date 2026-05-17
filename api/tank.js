@@ -1,5 +1,6 @@
 import createKimiClient from '../lib/ai-client.js';
 import { getSettings, updateSettings, logAction, getRecentLogs } from '../lib/db.js';
+import { getTodaysDowIntel } from '../lib/dow-analysis.js';
 
 /**
  * TANK — Chief of Operations
@@ -61,6 +62,37 @@ export async function runTank() {
   const now = new Date();
   const hour = now.getUTCHours();
   const period = hour >= 6 && hour < 18 ? 'AM' : 'PM';
+
+  // ── Pre-compute DOW intel before prompt construction ─────────────────────
+  let dowIntelText = '(DOW Intelligence not yet generated — Scout will build it on the next cycle.)';
+  try {
+    if (settings.dowReport?.assets) {
+      const dowIntel = getTodaysDowIntel(settings.dowReport);
+      if (dowIntel) {
+        const DAY_NAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        const today = new Date().getUTCDay();
+        const assetLines = [];
+        for (const [sym, data] of Object.entries(settings.dowReport.assets)) {
+          const s = data.byDow?.[today];
+          if (!s || s.sampleCount < 5) continue;
+          assetLines.push(`  ${sym}: avg ${s.avgChangePct > 0 ? '+' : ''}${s.avgChangePct}% | ${s.winRate}% green closes | samples: ${s.sampleCount}`);
+        }
+        dowIntelText = `DAY-OF-WEEK INTELLIGENCE (90-day seasonal pattern, built by Scout):
+Today: ${dowIntel.dayName}
+Market DOW posture: ${dowIntel.posture}
+Per-asset breakdown for today (${dowIntel.dayName}):
+${assetLines.join('\n') || '  Insufficient data'}
+Report generated: ${settings.dowReportGeneratedAt || 'unknown'}
+
+USE THIS INTEL TO ADJUST YOUR MISSION:
+- If today is a historically strong day (winRate > 60%, avg > +1%), allow CIPHER to run full size on confirmed momentum entries.
+- If today is Sunday or a historically weak day, explicitly cap trade size in your mission directive.
+- If today is Tuesday with positive bias, mention it: "Tuesday typically sees elevated momentum — prioritize breakout entries in the 9am-11am EST window."`;
+      }
+    }
+  } catch (dowErr) {
+    console.warn('[Tank DOW] Non-fatal:', dowErr.message);
+  }
 
   // ── Pre-compute trade sizing BEFORE calling the AI so the prompt contains
   // the real bounds. This prevents Tank's mission text from ever contradicting
@@ -162,6 +194,8 @@ Hourly cognitive rollup:
 
 Macro trend ledger:
 "${(settings.macroLedgers && settings.macroLedgers[0]?.text) || 'No macro ledger yet.'}"
+
+${dowIntelText}
 
 Previous Tank reports (your own continuity):
 ${previousReports.length > 0

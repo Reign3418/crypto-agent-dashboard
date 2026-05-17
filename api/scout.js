@@ -2,6 +2,7 @@ import createKimiClient from '../lib/ai-client.js';
 import { logAction, saveScoutReport, updateSettings } from '../lib/db.js';
 import { runEvaluation } from '../lib/evaluator.js';
 import { runNumNum } from '../lib/numnum.js';
+import { buildDowReport, getTodaysDowIntel } from '../lib/dow-analysis.js';
 
 /**
  * Big Jon — The Conflict Referee
@@ -151,6 +152,34 @@ export async function runScoutMission() {
     }));
 
     await logAction('🤖 Handing market data to AI Scout for analysis...');
+
+    // ── DOW Intelligence: Refresh once per 24h, store in settings ────────────
+    // Scout owns the data. Tank reads it. Zero extra AI calls — pure math.
+    let dowIntel = null;
+    try {
+      const cachedDowAt  = settings.dowReportGeneratedAt
+        ? new Date(settings.dowReportGeneratedAt).getTime() : 0;
+      const dowAgeHours  = (Date.now() - cachedDowAt) / (1000 * 60 * 60);
+      let dowReport      = settings.dowReport || null;
+
+      if (!dowReport || dowAgeHours > 24) {
+        await logAction('📅 [DOW] Building Day-of-Week intelligence report (90d candle analysis)...');
+        dowReport = await buildDowReport();
+        await updateSettings({
+          dowReport,
+          dowReportGeneratedAt: dowReport.generatedAt,
+        });
+        await logAction(`📅 [DOW] Report complete. ${Object.keys(dowReport.assets).length} assets analyzed across 7 days.`);
+      }
+
+      dowIntel = getTodaysDowIntel(dowReport);
+      if (dowIntel) {
+        await logAction(`📅 [DOW] Today (${dowIntel.dayName}): ${dowIntel.posture.split('—')[0].trim()} | Market avg ${dowIntel.avgMarketChangePct > 0 ? '+' : ''}${dowIntel.avgMarketChangePct}% on this DOW.`);
+      }
+    } catch (dowErr) {
+      console.warn('[Scout DOW] Non-fatal:', dowErr.message);
+    }
+    // ── END DOW Intelligence ──────────────────────────────────────────────────
 
     // Step 4: Initialize Kimi K2.6 client
     const kimi = createKimiClient();

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import DowIntelligence from './DowIntelligence';
 
 const ASSETS = ['BTC','ETH','SOL','AVAX','LINK','MATIC','DOT','ADA','DOGE','SHIB','LTC','XRP','ATOM','UNI','AAVE','CRV','FTM','NEAR','APT','ARB','ZEC'];
 
@@ -80,6 +81,7 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
   const [overrideExpiry, setOverrideExpiry] = useState('6h');
   const [cipherProtocols, setCipherProtocols] = useState([]);
   const [protocolActionLoading, setProtocolActionLoading] = useState(null);
+  const [showDow, setShowDow] = useState(true); // DOW Intelligence panel open by default
 
   const fetchStrategies = useCallback(async () => {
     try {
@@ -667,6 +669,21 @@ export default function StrategyPanel({ isHalted, onTriggeredCount }) {
           </div>
         </section>
       </div>
+
+      {/* ── DOW Intelligence ── */}
+      <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div
+          onClick={() => setShowDow(v => !v)}
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', userSelect: 'none' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h3 style={{ margin: 0 }}>📅 Day-of-Week Intelligence</h3>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-tertiary)', padding: '2px 8px', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>Scout-owned · 90-day pattern</span>
+          </div>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', transition: 'transform 0.2s', transform: showDow ? 'rotate(180deg)' : 'none' }}>▼</span>
+        </div>
+        {showDow && <DowIntelligence />}
+      </section>
 
       {/* ── Strategies Drawer (collapsed by default) ── */}
       <section className="glass-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
