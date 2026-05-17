@@ -432,7 +432,7 @@ Return ONLY valid JSON (no markdown, no code blocks):
 Your job: Review each proposal against the current performance data. Be rigorous. Only approve if the evidence is solid (3+ trades showing a clear pattern). Reject noise or proposals built on too few data points.
 
 CURRENT PERFORMANCE DATA:
-- Win rate: ${winRate !== null ? (winRate * 100).toFixed(1) + '%' : 'unknown'}
+- Win rate: ${winRatePct !== null ? winRatePct.toFixed(1) + '%' : 'unknown'}
 - Fee drag: ${feeDragPct !== null ? feeDragPct.toFixed(1) + '%' : 'unknown'}
 - Total trades this era: ${dozerReport?.totalTrades || 0}
 - System health: ${report.systemHealth}
