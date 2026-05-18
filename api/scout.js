@@ -309,7 +309,7 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
       const { fetchLiveNews } = await import('../lib/news.js');
       const recentLogs = await getRecentLogs().catch(() => []);
       const liveNews = await fetchLiveNews();
-      const { positionHealthSummary } = await import('../lib/utils.js');
+
 
       // Read Tank's live operating envelope (recalibrates every 6h)
       const tankAggressionLevel  = settings.tankAggressionLevel  || 'neutral';
