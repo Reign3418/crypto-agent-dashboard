@@ -53,6 +53,30 @@ export default function CipherArchitecture() {
   const numFloor = parseFloat(settings.numNumFloor || '1.5').toFixed(1);
   const numStop  = parseFloat(settings.numNumStopLoss || '5.0').toFixed(1);
   const dowDay   = settings.dowReport ? (() => { const d = new Date().getUTCDay(); const days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat']; return days[d]; })() : null;
+  const activeStyle = settings.tankTradingStyle || null;
+  const activeStyleReason = settings.tankTradingStyleReason || null;
+  const activeStyleSetAt = settings.tankTradingStyleSetAt || null;
+
+  // DCA / HODL live state
+  const dcaAsset    = settings.tankDcaAsset;
+  const dcaAmount   = settings.tankDcaAmount;
+  const dcaInterval = settings.tankDcaIntervalHours;
+  const dcaTotal    = settings.dcaTotalBought;
+  const dcaCount    = settings.dcaBuyCount;
+  const dcaLast     = settings.dcaLastBuyAt;
+  const hodlAsset   = settings.tankHodlAsset;
+
+  const STYLE_META = [
+    { id:'scalp',     icon:'⚡', label:'Scalp',      color:'#f97316', hold:'Sec–60m',    target:'0.8–2%',   support:true,  desc:'Dozens of fast trades per day. Exit before trend reverses. Only viable at high capital + bull regime.' },
+    { id:'day_trade', icon:'🌅', label:'Day Trade',  color:'#f59e0b', hold:'1h–20h',     target:'2–6%',     support:true,  desc:'All positions close by UTC midnight. No overnight exposure. Catches intraday trends without overnight risk.' },
+    { id:'swing',     icon:'🌊', label:'Swing',      color:'#3b82f6', hold:'Hours–2d',   target:'3–10%',    support:true,  desc:'Hold positions for hours to days. Catch market swings. Default style for small capital. Fees need room to breathe.' },
+    { id:'position',  icon:'🏔', label:'Position',   color:'#8b5cf6', hold:'Days–weeks', target:'10–30%+',  support:true,  desc:'Macro trend focus. Ignores short-term volatility. Fundamental analysis drives decisions rather than daily charts.' },
+    { id:'hodl',      icon:'💎', label:'HODL',       color:'#22c55e', hold:'Indefinite', target:'100%+',    support:true,  desc:'Hold On for Dear Life. Never sell regardless of dips. Only 15% hard stop-loss can exit. Pure long-term conviction play.' },
+    { id:'dca',       icon:'⏱', label:'DCA',        color:'#06b6d4', hold:'Accumulate', target:'Avg cost', support:true,  desc:'Dollar-Cost Averaging. Buy fixed $ at fixed intervals regardless of price. Zero technical analysis required.' },
+    { id:'hft',       icon:'🤖', label:'HFT / Algo', color:'#475569', hold:'<1 sec',     target:'<0.01%',   support:false, notSupported:'Requires sub-second execution infrastructure. Our 5-minute cadence cannot compete. Note: CIPHER is already an algorithmic system — we ARE the algo, just at swing/day scale.' },
+    { id:'arb',       icon:'🔀', label:'Arbitrage',  color:'#475569', hold:'Millisecs',  target:'<0.1%',    support:false, notSupported:'Requires simultaneous multi-exchange connections (Gemini + Binance + Coinbase). We are single-exchange only. Price gaps close in milliseconds — our API latency is too high.' },
+  ];
+
 
   const combat    = AGENTS.filter(a => a.ring === 'combat');
   const backoffice = AGENTS.filter(a => a.ring === 'backoffice');
@@ -74,6 +98,7 @@ export default function CipherArchitecture() {
             {[
               {label:'SYSTEM',    value:report.systemHealth||'—',  color:report.systemHealth==='STABLE'?'#22c55e':report.systemHealth==='CAUTION'?'#f59e0b':'#ef4444'},
               {label:'AUTOPILOT', value:autopilot?'ON':'OFF',       color:autopilot?'#22c55e':'#ef4444'},
+              {label:'STYLE',     value:activeStyle ? activeStyle.toUpperCase().replace('_',' ') : '—', color: STYLE_META.find(s=>s.id===activeStyle)?.color || '#475569'},
               {label:'NUM FLOOR', value:numFloor+'%',               color:'#a78bfa'},
               {label:'STOP-LOSS', value:numStop+'%',                color:'#ef4444'},
               {label:'FEE DRAG',  value:'0.80%',                    color:'#f59e0b'},
@@ -275,6 +300,82 @@ export default function CipherArchitecture() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Trading Style Encyclopedia */}
+      <div style={{marginTop:20,background:'linear-gradient(135deg,#0a0f1c,#0d1526)',border:'1px solid #1e3a5f50',borderRadius:10,padding:'16px 20px'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14,flexWrap:'wrap',gap:8}}>
+          <div style={{fontSize:'0.62rem',color:'#38bdf8',fontWeight:700,letterSpacing:'0.12em'}}>📐 TRADING STYLE ENCYCLOPEDIA — 6 SUPPORTED · 2 NOT SUPPORTED</div>
+          {activeStyle && (
+            <div style={{fontSize:'0.58rem',color:'#94a3b8',background:'#0f1929',border:'1px solid #1e293b',borderRadius:6,padding:'4px 10px'}}>
+              Active: <span style={{color: STYLE_META.find(s=>s.id===activeStyle)?.color||'#fff',fontWeight:700}}>{activeStyle.toUpperCase().replace('_',' ')}</span>
+              {activeStyleSetAt && <span style={{color:'#334155'}}> · set {new Date(activeStyleSetAt).toLocaleTimeString()}</span>}
+            </div>
+          )}
+        </div>
+
+        {/* Active style reason */}
+        {activeStyleReason && (
+          <div style={{marginBottom:14,background:'#0f172a',border:'1px solid #1e3a5f',borderLeft:`3px solid ${STYLE_META.find(s=>s.id===activeStyle)?.color||'#38bdf8'}`,borderRadius:6,padding:'8px 12px'}}>
+            <div style={{fontSize:'0.57rem',color:'#475569',marginBottom:3}}>TANK&apos;S REASONING THIS CYCLE</div>
+            <div style={{fontSize:'0.65rem',color:'#94a3b8',lineHeight:1.6}}>{activeStyleReason}</div>
+          </div>
+        )}
+
+        {/* DCA live status */}
+        {activeStyle === 'dca' && dcaAsset && (
+          <div style={{marginBottom:14,background:'#06b6d410',border:'1px solid #06b6d430',borderRadius:8,padding:'10px 14px',display:'flex',gap:20,flexWrap:'wrap'}}>
+            <div><div style={{fontSize:'0.52rem',color:'#334155'}}>DCA ASSET</div><div style={{fontSize:'0.8rem',fontWeight:800,color:'#06b6d4'}}>{dcaAsset}</div></div>
+            <div><div style={{fontSize:'0.52rem',color:'#334155'}}>PER INTERVAL</div><div style={{fontSize:'0.8rem',fontWeight:800,color:'#06b6d4'}}>${dcaAmount}</div></div>
+            <div><div style={{fontSize:'0.52rem',color:'#334155'}}>INTERVAL</div><div style={{fontSize:'0.8rem',fontWeight:800,color:'#06b6d4'}}>{parseFloat(dcaInterval||168)>=168?`${Math.round(parseFloat(dcaInterval)/24)}d`:`${dcaInterval}h`}</div></div>
+            {dcaCount && <div><div style={{fontSize:'0.52rem',color:'#334155'}}>BUYS MADE</div><div style={{fontSize:'0.8rem',fontWeight:800,color:'#06b6d4'}}>#{dcaCount}</div></div>}
+            {dcaTotal && <div><div style={{fontSize:'0.52rem',color:'#334155'}}>TOTAL DEPLOYED</div><div style={{fontSize:'0.8rem',fontWeight:800,color:'#06b6d4'}}>${dcaTotal}</div></div>}
+            {dcaLast && <div><div style={{fontSize:'0.52rem',color:'#334155'}}>LAST BUY</div><div style={{fontSize:'0.72rem',color:'#94a3b8'}}>{new Date(dcaLast).toLocaleString()}</div></div>}
+          </div>
+        )}
+
+        {/* HODL live status */}
+        {activeStyle === 'hodl' && hodlAsset && (
+          <div style={{marginBottom:14,background:'#22c55e10',border:'1px solid #22c55e30',borderRadius:8,padding:'10px 14px'}}>
+            <span style={{fontSize:'0.62rem',color:'#22c55e',fontWeight:700}}>💎 HODLing {hodlAsset}</span>
+            <span style={{fontSize:'0.58rem',color:'#475569',marginLeft:10}}>Exit disabled · 15% hard stop-loss only</span>
+          </div>
+        )}
+
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:10}}>
+          {STYLE_META.map(s => {
+            const isActive = s.id === activeStyle;
+            return (
+              <div key={s.id} style={{
+                background: s.support ? (isActive ? s.color+'18' : '#0a0f1c') : '#0a0a0a',
+                border: `1px solid ${isActive ? s.color : s.support ? s.color+'25' : '#1e293b'}`,
+                borderRadius:8,
+                padding:'12px 14px',
+                opacity: s.support ? 1 : 0.55,
+                position:'relative',
+                transition:'all 0.2s',
+              }}>
+                {isActive && (
+                  <div style={{position:'absolute',top:6,right:8,fontSize:'0.5rem',color:s.color,fontWeight:700,background:s.color+'20',padding:'2px 6px',borderRadius:10}}>ACTIVE</div>
+                )}
+                {!s.support && (
+                  <div style={{position:'absolute',top:6,right:8,fontSize:'0.5rem',color:'#475569',background:'#1e293b',padding:'2px 6px',borderRadius:10}}>NOT SUPPORTED</div>
+                )}
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                  <span style={{fontSize:'1.1rem'}}>{s.icon}</span>
+                  <span style={{fontWeight:700,color: s.support ? s.color : '#475569',fontSize:'0.72rem'}}>{s.label}</span>
+                </div>
+                <div style={{display:'flex',gap:12,marginBottom:7}}>
+                  <div><div style={{fontSize:'0.48rem',color:'#334155'}}>HOLD</div><div style={{fontSize:'0.6rem',color:'#64748b'}}>{s.hold}</div></div>
+                  <div><div style={{fontSize:'0.48rem',color:'#334155'}}>TARGET</div><div style={{fontSize:'0.6rem',color:'#64748b'}}>{s.target}</div></div>
+                </div>
+                <div style={{fontSize:'0.58rem',color: s.support ? '#475569' : '#334155',lineHeight:1.5}}>
+                  {s.support ? s.desc : s.notSupported}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
