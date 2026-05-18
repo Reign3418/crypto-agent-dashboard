@@ -251,22 +251,49 @@ MARKET REGIME GUIDANCE (classify based on macro ledger + recent scout data):
 - "ranging": assets oscillating within a band without clear trend
 - "high_volatility": large swings in either direction, high uncertainty
 
-TRADING STYLE DECLARATION (your most important structural decision this cycle):
-Based on capital size, fee drag, regime, DOW intel, and open position data — declare the operating style:
+TRADING STYLE DECLARATION — your most important structural decision this cycle:
+Based on capital, fees, regime, DOW intel, win rate, and open positions.
 
-- "scalp": short fast trades, minutes to 1h. Only appropriate when capital > $200 AND win rate > 55% AND regime is trending_bull. At small capital, fees destroy scalping margins.
-- "swing": hold positions hours to 1-2 days. Default for capital < $100 OR bear/ranging regime. Gives prices room to develop past the 0.8% fee barrier.
-- "position": multi-day hold. Use when an open position has held > 8h with positive health signal, OR when regime is strongly trending.
+The 6 supported styles:
+- "scalp":      Seconds to 60 minutes. Target 0.8–2%. Only viable capital > $200 + win rate > 55% + trending_bull. Fees destroy scalping at small size.
+- "day_trade":  1h to 20h max. All positions CLOSE by UTC midnight — no overnight. Target 2–6%. Good for moderate volatility with clear intraday trend.
+- "swing":      Hours to 2 days. Target 3–10%. DEFAULT for capital < $100 or bear/ranging regime. Gives price room to clear the 0.8% fee barrier.
+- "position":   Days to weeks. Target 10–30%+. For strong macro trends and high-conviction assets. Very patient.
+- "hodl":       Indefinite. No exit from health checks. Only hard stop-loss (set at 15%) can close. Declare when human wants long-term crypto exposure.
+- "dca":        Dollar-Cost Averaging. Buy fixed $ at fixed intervals regardless of price. No technical analysis. Use when capital is small or volatile and consistent accumulation is the goal.
 
-CRITICAL: At the current capital level (~$${liquidUSD.toFixed(0)}), scalping is mathematically brutal — you need a 3.3%+ move just to clear fees. Default to swing unless you have a specific strong reason to scalp.
+STYLE DECISION TABLE:
+| Condition | Recommended Style |
+|---|---|
+| Capital < $50 + bear/ranging | swing |
+| Capital < $50 + human wants accumulation | dca |
+| Human explicitly says "HODL [asset]" | hodl |
+| Capital $50–$200 + ranging/moderate vol | day_trade or swing |
+| Capital > $200 + win rate > 55% + trending_bull | scalp |
+| Capital > $300 + strong multi-week trend | position |
+| Capital > $500 + conviction asset + long thesis | hodl |
+
+CURRENT CAPITAL: ~$${liquidUSD.toFixed(0)}. At this size, scalping is brutal — you need 3.3%+ move to clear fees. Default to swing unless compelling reason otherwise.
+
+For DCA mode, also output:
+  "dcaAsset": "SOL",        // which asset to accumulate
+  "dcaAmount": 15,           // USD per interval
+  "dcaIntervalHours": 168    // how often to buy (168 = weekly)
+
+For HODL mode, also output:
+  "hodlAsset": "BTC"         // which asset is being HODLed
 
 Return ONLY valid JSON (no markdown, no code blocks):
 {
   "missionDirective": "The new mission directive for CIPHER — specific, achievable, capital-protective",
-  "missionRationale": "One sentence: the math behind this goal (trades/day × avg net = achievable)",
+  "missionRationale": "One sentence: the math behind this goal",
   "missionChanged": true | false,
-  "tradingStyle": "scalp" | "swing" | "position",
+  "tradingStyle": "scalp" | "day_trade" | "swing" | "position" | "hodl" | "dca",
   "tradingStyleReason": "One sentence explaining why this style fits current capital, regime, and position data.",
+  "dcaAsset": null,
+  "dcaAmount": null,
+  "dcaIntervalHours": null,
+  "hodlAsset": null,
   "agentHealth": {
     "cipher": "HEALTHY | MONITOR | CRITICAL — one sentence why",
     "null": "HEALTHY | MONITOR | CRITICAL — one sentence why",
@@ -274,7 +301,7 @@ Return ONLY valid JSON (no markdown, no code blocks):
     "numNum": "HEALTHY | MONITOR | CRITICAL — one sentence why"
   },
   "systemHealth": "STABLE | CAUTION | CRITICAL",
-  "briefing": "2-3 sentences in plain English for the human operator: what happened in the last 3 hours, what changed, what the team is watching. Write like a confident ops manager, not like an AI.",
+  "briefing": "2-3 sentences in plain English for the human operator.",
   "capitalRisk": "LOW | MEDIUM | HIGH",
   "aggressionLevel": "conservative | neutral | aggressive",
   "regimeDetected": "trending_bull | trending_bear | ranging | high_volatility"
@@ -329,10 +356,18 @@ Return ONLY valid JSON (no markdown, no code blocks):
   }
   // ── END OVERRIDE ─────────────────────────────────────────────────────────
 
-  // ── Validate tradingStyle ─────────────────────────────────────────────────
-  const validStyles = ['scalp', 'swing', 'position'];
+  // ── Validate tradingStyle and DCA/HODL config ────────────────────────────────
+  const validStyles = ['scalp', 'day_trade', 'swing', 'position', 'hodl', 'dca'];
   const tradingStyle = validStyles.includes(tankOutput.tradingStyle) ? tankOutput.tradingStyle : 'swing';
   const tradingStyleReason = tankOutput.tradingStyleReason || 'Defaulting to swing — safest for current capital.';
+  // DCA config (only meaningful when tradingStyle === 'dca')
+  const dcaAsset         = tankOutput.dcaAsset || null;
+  const dcaAmount        = tankOutput.dcaAmount ? parseFloat(tankOutput.dcaAmount) : null;
+  const dcaIntervalHours = tankOutput.dcaIntervalHours ? parseFloat(tankOutput.dcaIntervalHours) : null;
+  // HODL config
+  const hodlAsset        = tankOutput.hodlAsset || null;
+  // HODL gets wider stop-loss (15%) — override numNumStopLoss deterministically
+  if (tradingStyle === 'hodl') numNumStopLoss = 15.0;
 
   // ── Build the report object ───────────────────────────────────────────────
   const nextRunMs = 6 * 60 * 60 * 1000; // 6h cadence
@@ -577,6 +612,12 @@ Return ONLY the JSON array. No markdown. No explanation outside the array.`;
     tankTradingStyle:       tradingStyle,
     tankTradingStyleReason: tradingStyleReason,
     tankTradingStyleSetAt:  now.toISOString(),
+    // DCA config
+    ...(dcaAsset         ? { tankDcaAsset: dcaAsset }                           : {}),
+    ...(dcaAmount        ? { tankDcaAmount: dcaAmount.toString() }               : {}),
+    ...(dcaIntervalHours ? { tankDcaIntervalHours: dcaIntervalHours.toString() } : {}),
+    // HODL config
+    ...(hodlAsset ? { tankHodlAsset: hodlAsset } : {}),
     // Tank has responded to CIPHER's distress. Clear the flag.
     cipherDistressFlag:     false,
     cipherDistressReason:   '',

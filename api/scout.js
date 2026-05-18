@@ -4,6 +4,7 @@ import { runEvaluation } from '../lib/evaluator.js';
 import { runNumNum } from '../lib/numnum.js';
 import { buildDowReport, getTodaysDowIntel } from '../lib/dow-analysis.js';
 import { checkPositionHealth, positionHealthSummary } from '../lib/position-health.js';
+import { runDcaEngine } from '../lib/dca-engine.js';
 
 /**
  * Big Jon — The Conflict Referee
@@ -192,7 +193,8 @@ export async function runScoutMission() {
         settings.openPositions || {},
         moversWithCandles,
         healthNews,
-        settings.dowReport
+        settings.dowReport,
+        settings.tankTradingStyle || 'swing'
       );
       if (positionHealthReports.length > 0) {
         await updateSettings({ positionHealthReport: positionHealthReports });
@@ -396,6 +398,17 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
         return { panicSold: true, report: finalReport };
       }
 
+      // ── DCA Engine: runs before AI autopilot, pure math buy on schedule ──────────
+      try {
+        const dcaResult = await runDcaEngine({ settings, executeTrade, logAction, updateSettings });
+        if (dcaResult.executed) {
+          const freshDca = await getSettings();
+          Object.assign(settings, freshDca);
+          return { dcaBuy: true, report: finalReport };
+        }
+      } catch (dcaErr) { console.warn('[Scout DCA] Non-fatal:', dcaErr.message); }
+      // ── END DCA Engine ─────────────────────────────────────────────────
+
       if (settings.autopilotEnabled) {
         await logAction('🚀 CIPHER Core Autopilot is ON. AI evaluating the market for a trade opportunity...');
 
@@ -462,21 +475,20 @@ System health: ${latestTankReport ? latestTankReport.systemHealth : 'UNKNOWN'}
 Reason: ${tankTradingStyleReason}
 
 What this means for you RIGHT NOW:
-${tankTradingStyle === 'scalp'
-  ? 'SCALP MODE: Close positions quickly. Target 1-3% moves. Every extra hold hour is lost opportunity. Exit fast when NumNum approves.'
-  : tankTradingStyle === 'position'
-  ? 'POSITION MODE: This is a multi-day hold. Do NOT attempt to sell unless Scout flags exitUrgency = urgent or stop-loss fires. Holding IS the mission right now. Do NOT declare STUCK just because NumNum blocks a premature sell.'
-  : 'SWING MODE: Hold positions for hours to 1-2 days. Give prices room to develop past the 0.8% fee barrier. Do NOT declare STUCK just because NumNum blocks a sell right after entry. Wait for Scout to signal exit readiness. Patience is correct behavior in this mode.'
-}
+${(() => {
+  switch (tankTradingStyle) {
+    case 'scalp':     return 'SCALP: Close fast. Target 0.8-2%. Exit when NumNum clears. Multiple trades/cycle ok.';
+    case 'day_trade': return 'DAY TRADE: Close by UTC midnight. Target 2-6%. No overnight holds.';
+    case 'position':  return 'POSITION: Days-to-weeks hold. Ignore noise. Only Scout urgent or stop-loss exits.';
+    case 'hodl':      return 'HODL: Never sell from this decision. 15% stop-loss only. Do NOT declare STUCK.';
+    case 'dca':       return 'DCA: DCA engine auto-buys on schedule. Do NOT initiate trades. Monitor cost basis.';
+    default:          return 'SWING: Hold hours to 2 days. Give price room past 0.8% fees. Patient hold is correct.';
+  }
+})()}
 
-SCOUT’S POSITION HEALTH REPORT (inward eye — checked every 5m, pure math):
+SCOUT POSITION HEALTH (5m inward eye):
 ${positionHealthSummary(latestPosHealth)}
-
-INTERPRETATION RULES FOR POSITION HEALTH:
-- signal=hold + exitUrgency=none: Position is healthy. In SWING/POSITION mode, DO NOT attempt to sell. Hold is the correct action. Do NOT declare STUCK.
-- signal=watch + exitUrgency=watch: Monitor closely. Prepare exit plan but do not execute yet unless NumNum approves.
-- signal=exit + exitUrgency=urgent: Exit NOW regardless of trading style. Scout has flagged deteriorating conditions. This overrides swing/position patience.
-- No positions listed: No open positions. Look for a new entry.
+Rules: hold/none=stay put, watch/watch=prepare, exit/urgent=sell now. HODL/DCA=health info only.
 
 TANK OPERATING ENVELOPE (live calibration — recalibrates every 3h):
 Aggression Level: ${tankAggressionLevel.toUpperCase()} — ${
