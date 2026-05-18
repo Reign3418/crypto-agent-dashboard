@@ -251,11 +251,22 @@ MARKET REGIME GUIDANCE (classify based on macro ledger + recent scout data):
 - "ranging": assets oscillating within a band without clear trend
 - "high_volatility": large swings in either direction, high uncertainty
 
+TRADING STYLE DECLARATION (your most important structural decision this cycle):
+Based on capital size, fee drag, regime, DOW intel, and open position data — declare the operating style:
+
+- "scalp": short fast trades, minutes to 1h. Only appropriate when capital > $200 AND win rate > 55% AND regime is trending_bull. At small capital, fees destroy scalping margins.
+- "swing": hold positions hours to 1-2 days. Default for capital < $100 OR bear/ranging regime. Gives prices room to develop past the 0.8% fee barrier.
+- "position": multi-day hold. Use when an open position has held > 8h with positive health signal, OR when regime is strongly trending.
+
+CRITICAL: At the current capital level (~$${liquidUSD.toFixed(0)}), scalping is mathematically brutal — you need a 3.3%+ move just to clear fees. Default to swing unless you have a specific strong reason to scalp.
+
 Return ONLY valid JSON (no markdown, no code blocks):
 {
   "missionDirective": "The new mission directive for CIPHER — specific, achievable, capital-protective",
   "missionRationale": "One sentence: the math behind this goal (trades/day × avg net = achievable)",
   "missionChanged": true | false,
+  "tradingStyle": "scalp" | "swing" | "position",
+  "tradingStyleReason": "One sentence explaining why this style fits current capital, regime, and position data.",
   "agentHealth": {
     "cipher": "HEALTHY | MONITOR | CRITICAL — one sentence why",
     "null": "HEALTHY | MONITOR | CRITICAL — one sentence why",
@@ -278,6 +289,8 @@ Return ONLY valid JSON (no markdown, no code blocks):
       missionDirective: settings.missionDirective || 'Protect capital and execute disciplined trades.',
       missionRationale: 'Parse error — maintaining current directive.',
       missionChanged: false,
+      tradingStyle: settings.tankTradingStyle || 'swing',
+      tradingStyleReason: 'Parse error — maintaining previous style.',
       agentHealth: { cipher: 'UNKNOWN', null: 'UNKNOWN', bigJon: 'UNKNOWN', numNum: 'UNKNOWN' },
       systemHealth: 'UNKNOWN',
       briefing: 'Tank encountered a parse error on this report cycle. All systems maintaining current state.',
@@ -316,6 +329,11 @@ Return ONLY valid JSON (no markdown, no code blocks):
   }
   // ── END OVERRIDE ─────────────────────────────────────────────────────────
 
+  // ── Validate tradingStyle ─────────────────────────────────────────────────
+  const validStyles = ['scalp', 'swing', 'position'];
+  const tradingStyle = validStyles.includes(tankOutput.tradingStyle) ? tankOutput.tradingStyle : 'swing';
+  const tradingStyleReason = tankOutput.tradingStyleReason || 'Defaulting to swing — safest for current capital.';
+
   // ── Build the report object ───────────────────────────────────────────────
   const nextRunMs = 6 * 60 * 60 * 1000; // 6h cadence
   const report = {
@@ -325,6 +343,8 @@ Return ONLY valid JSON (no markdown, no code blocks):
     missionRationale: tankOutput.missionRationale,
     missionChanged: tankOutput.missionChanged,
     previousMission: tankOutput.missionChanged ? (settings.missionDirective || null) : null,
+    tradingStyle,
+    tradingStyleReason,
     agentHealth: tankOutput.agentHealth,
     systemHealth: tankOutput.systemHealth,
     capitalRisk: tankOutput.capitalRisk,
@@ -554,6 +574,9 @@ Return ONLY the JSON array. No markdown. No explanation outside the array.`;
     tankCapitalEfficiencyMode: capitalEfficiencyMode,
     tankAggressionLevel:    aggressionLevel,
     tankRegimeDetected:     regimeDetected,
+    tankTradingStyle:       tradingStyle,
+    tankTradingStyleReason: tradingStyleReason,
+    tankTradingStyleSetAt:  now.toISOString(),
     // Tank has responded to CIPHER's distress. Clear the flag.
     cipherDistressFlag:     false,
     cipherDistressReason:   '',
@@ -568,7 +591,12 @@ Return ONLY the JSON array. No markdown. No explanation outside the array.`;
   );
 
   await logAction(
-    `📊 [TANK] Calibrated → floor: ${numNumFloor}% | stop: ${numNumStopLoss}% | trail: ${trailingStopLoss}% | min: $${minTradeSize} | max: $${maxTradeSize} | aggression: ${aggressionLevel} | regime: ${regimeDetected} | capEffMode: ${capitalEfficiencyMode} | reason: ${calibrationReason}`
+    `📊 [TANK] Calibrated → floor: ${numNumFloor}% | stop: ${numNumStopLoss}% | trail: ${trailingStopLoss}% | min: $${minTradeSize} | max: $${maxTradeSize} | aggression: ${aggressionLevel} | regime: ${regimeDetected} | style: ${tradingStyle.toUpperCase()} | capEffMode: ${capitalEfficiencyMode} | reason: ${calibrationReason}`
+  );
+
+  await logAction(
+    `📐 [TANK STYLE] Trading style set to ${tradingStyle.toUpperCase()} — ${tradingStyleReason}`,
+    true
   );
 
   if (report.missionChanged) {

@@ -3,6 +3,7 @@ import { logAction, saveScoutReport, updateSettings } from '../lib/db.js';
 import { runEvaluation } from '../lib/evaluator.js';
 import { runNumNum } from '../lib/numnum.js';
 import { buildDowReport, getTodaysDowIntel } from '../lib/dow-analysis.js';
+import { checkPositionHealth, positionHealthSummary } from '../lib/position-health.js';
 
 /**
  * Big Jon — The Conflict Referee
@@ -181,6 +182,33 @@ export async function runScoutMission() {
     }
     // ── END DOW Intelligence ──────────────────────────────────────────────────
 
+    // ── Position Health Check (Scout's Inward Eye) ───────────────────────────
+    // Runs every 5m alongside candle fetch. Pure math, no AI.
+    let positionHealthReports = [];
+    try {
+      const { fetchLiveNews: fetchNewsForHealth } = await import('../lib/news.js');
+      const healthNews = await fetchNewsForHealth().catch(() => []);
+      positionHealthReports = checkPositionHealth(
+        settings.openPositions || {},
+        moversWithCandles,
+        healthNews,
+        settings.dowReport
+      );
+      if (positionHealthReports.length > 0) {
+        await updateSettings({ positionHealthReport: positionHealthReports });
+        for (const ph of positionHealthReports) {
+          const icon = ph.signal === 'exit' ? '🚨' : ph.signal === 'watch' ? '⚠️' : '✅';
+          await logAction(
+            `👁️ [POSITION HEALTH] ${ph.symbol}: ${icon} ${ph.signal.toUpperCase()} [urgency:${ph.exitUrgency}] | held ${ph.holdHours}h | ${ph.unrealizedPct >= 0 ? '+' : ''}${ph.unrealizedPct}% | ${ph.reason}`,
+            ph.signal === 'exit'
+          );
+        }
+      }
+    } catch (phErr) {
+      console.warn('[Scout PositionHealth] Non-fatal:', phErr.message);
+    }
+    // ── END Position Health ────────────────────────────────────────────────
+
     // Step 4: Initialize Kimi K2.6 client
     const kimi = createKimiClient();
 
@@ -279,6 +307,7 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
       const { fetchLiveNews } = await import('../lib/news.js');
       const recentLogs = await getRecentLogs().catch(() => []);
       const liveNews = await fetchLiveNews();
+      const { positionHealthSummary } = await import('../lib/utils.js');
 
       // Read Tank's live operating envelope (recalibrates every 6h)
       const tankAggressionLevel  = settings.tankAggressionLevel  || 'neutral';
@@ -286,6 +315,9 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
       const tankMinTradeSize     = parseFloat(settings.tankMinTradeSize  || '15');
       const tankMaxTradeSize     = parseFloat(settings.tankMaxTradeSize  || '9999');
       const tankCapEffMode       = settings.tankCapitalEfficiencyMode === true || settings.tankCapitalEfficiencyMode === 'true';
+      const tankTradingStyle     = settings.tankTradingStyle || 'swing';
+      const tankTradingStyleReason = settings.tankTradingStyleReason || 'Defaulting to swing — safest at current capital size.';
+      const latestPosHealth      = settings.positionHealthReport || positionHealthReports;
 
       // BUG 3 FIX: Hard/Trailing stop-loss ALWAYS runs — regardless of autopilot toggle.
       // If you turn off autopilot, you still need capital protection.
@@ -419,12 +451,32 @@ Return ONLY a valid JSON array (no markdown, no code blocks, just the raw array)
 
         const autopilotPrompt = `You are CIPHER (Crypto Intelligence & Portfolio Heuristics Engine/Router), an elite autonomous fund manager operating within the BASTION multi-agent system.
 
-COMMAND CHAIN: TANK (12h strategy) → NULL (1h tactics) → YOU (5min execution)
+COMMAND CHAIN: TANK (3h strategy) → NULL (1h tactics) → SCOUT (5m inward eye) → YOU (5m execution)
 
-TANK OPERATIONAL BRIEFING (Chief of Operations — 6h assessment):
+TANK OPERATIONAL BRIEFING (Chief of Operations — 3h assessment):
 "${latestTankReport ? latestTankReport.briefing : 'No Tank report yet — this is an early system cycle.'}"
 Mission set by: ${missionSetBy} | Mission completions to date: ${missionCompletions}
 System health: ${latestTankReport ? latestTankReport.systemHealth : 'UNKNOWN'}
+
+📐 TANK TRADING STYLE: ${tankTradingStyle.toUpperCase()}
+Reason: ${tankTradingStyleReason}
+
+What this means for you RIGHT NOW:
+${tankTradingStyle === 'scalp'
+  ? 'SCALP MODE: Close positions quickly. Target 1-3% moves. Every extra hold hour is lost opportunity. Exit fast when NumNum approves.'
+  : tankTradingStyle === 'position'
+  ? 'POSITION MODE: This is a multi-day hold. Do NOT attempt to sell unless Scout flags exitUrgency = urgent or stop-loss fires. Holding IS the mission right now. Do NOT declare STUCK just because NumNum blocks a premature sell.'
+  : 'SWING MODE: Hold positions for hours to 1-2 days. Give prices room to develop past the 0.8% fee barrier. Do NOT declare STUCK just because NumNum blocks a sell right after entry. Wait for Scout to signal exit readiness. Patience is correct behavior in this mode.'
+}
+
+SCOUT’S POSITION HEALTH REPORT (inward eye — checked every 5m, pure math):
+${positionHealthSummary(latestPosHealth)}
+
+INTERPRETATION RULES FOR POSITION HEALTH:
+- signal=hold + exitUrgency=none: Position is healthy. In SWING/POSITION mode, DO NOT attempt to sell. Hold is the correct action. Do NOT declare STUCK.
+- signal=watch + exitUrgency=watch: Monitor closely. Prepare exit plan but do not execute yet unless NumNum approves.
+- signal=exit + exitUrgency=urgent: Exit NOW regardless of trading style. Scout has flagged deteriorating conditions. This overrides swing/position patience.
+- No positions listed: No open positions. Look for a new entry.
 
 TANK OPERATING ENVELOPE (live calibration — recalibrates every 3h):
 Aggression Level: ${tankAggressionLevel.toUpperCase()} — ${
