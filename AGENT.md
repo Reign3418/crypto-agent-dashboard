@@ -9,15 +9,22 @@
 ## ⚠️ MANDATORY AI WORKFLOW — READ BEFORE TOUCHING ANYTHING
 
 > **This applies to every AI agent, coding assistant, or automated tool working in this repository.**
+> **Also read `ME.md` — it describes exactly how the operator thinks and wants to collaborate.**
 
 ### THE RULE: PLAN FIRST. CODE ONLY WHEN TOLD.
 
 ```
-STEP 1 — UNDERSTAND
-  Read the request. Read this file. Read relevant source files.
-  Do NOT form a plan yet. Do NOT write code. Just understand.
+STEP 0 — READ ME.md
+  Understand how the operator works BEFORE responding to anything.
+  They may be mid-thought. They may be gathering data on another screen.
+  Sharing an idea is NOT a build request.
 
-STEP 2 — PLAN
+STEP 1 — UNDERSTAND THE MODE
+  CONVERSATION: They're thinking out loud. Respond with thoughts. No code. No plans.
+  PLAN:         They want a written plan. Write it. Stop. Wait.
+  EXECUTE:      They said "go". Now build.
+
+STEP 2 — IF BUILDING: PLAN FIRST
   Write a clear implementation plan in plain English.
   Include: what files change, what logic changes, what the risk is.
   Present it to the human operator. STOP HERE.
@@ -43,6 +50,8 @@ STEP 5 — REPORT
 - Writing code changes because "it seemed implied" from the conversation
 - Skipping the plan and going straight to code on any non-trivial change
 - Making multiple file changes in one shot without the human seeing the plan first
+- **Building something the operator was still thinking through**
+- **Treating a shared idea as a build request**
 
 ### WHAT COUNTS AS "NON-TRIVIAL" (requires a plan):
 - Any change to `api/*.js` — these are live production agents
@@ -54,7 +63,7 @@ STEP 5 — REPORT
 
 ### WHAT IS TRIVIALLY SMALL (no plan needed):
 - Fixing a typo in a comment
-- Updating this `AGENT.md` or `README.md`
+- Updating this `AGENT.md` or `README.md` or `ME.md`
 - A one-line bug fix where the problem and fix are both crystal clear
 - Updating a display label in a JSX file
 
