@@ -273,7 +273,7 @@ STYLE DECISION TABLE:
 | Capital > $300 + strong multi-week trend | position |
 | Capital > $500 + conviction asset + long thesis | hodl |
 
-CURRENT CAPITAL: ~$${liquidUSD.toFixed(0)}. At this size, scalping is brutal — you need 3.3%+ move to clear fees. Default to swing unless compelling reason otherwise.
+CURRENT CAPITAL: ~$${(dozerReport?.capitalBalance?.liquidUSD || 0).toFixed(0)}. At this size, scalping is brutal — you need 3.3%+ move to clear fees. Default to swing unless compelling reason otherwise.
 
 For DCA mode, also output:
   "dcaAsset": "SOL",        // which asset to accumulate
