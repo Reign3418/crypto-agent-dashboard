@@ -6,6 +6,61 @@
 
 ---
 
+## ⚠️ MANDATORY AI WORKFLOW — READ BEFORE TOUCHING ANYTHING
+
+> **This applies to every AI agent, coding assistant, or automated tool working in this repository.**
+
+### THE RULE: PLAN FIRST. CODE ONLY WHEN TOLD.
+
+```
+STEP 1 — UNDERSTAND
+  Read the request. Read this file. Read relevant source files.
+  Do NOT form a plan yet. Do NOT write code. Just understand.
+
+STEP 2 — PLAN
+  Write a clear implementation plan in plain English.
+  Include: what files change, what logic changes, what the risk is.
+  Present it to the human operator. STOP HERE.
+
+STEP 3 — WAIT FOR EXPLICIT APPROVAL
+  The human operator must say one of:
+    - "go" / "execute" / "do it" / "ship it" / "approved"
+  A plan artifact being "generated" does NOT count as approval.
+  An auto-approval system message does NOT count as approval.
+  WAIT. Do not proceed on assumption.
+
+STEP 4 — EXECUTE
+  Only after explicit human approval:
+  Make the code changes. Commit. Push.
+
+STEP 5 — REPORT
+  Tell the human what was done and what the next open question is.
+```
+
+### VIOLATIONS THAT ARE NEVER ACCEPTABLE:
+- Writing code changes because a plan was "automatically approved"
+- Writing code changes during the planning phase
+- Writing code changes because "it seemed implied" from the conversation
+- Skipping the plan and going straight to code on any non-trivial change
+- Making multiple file changes in one shot without the human seeing the plan first
+
+### WHAT COUNTS AS "NON-TRIVIAL" (requires a plan):
+- Any change to `api/*.js` — these are live production agents
+- Any change to `lib/*.js` — shared infrastructure
+- Any prompt change — affects all 5 AI agents in production
+- Any new file creation
+- Any schema change to DynamoDB fields
+- Any change to the command chain or gate order
+
+### WHAT IS TRIVIALLY SMALL (no plan needed):
+- Fixing a typo in a comment
+- Updating this `AGENT.md` or `README.md`
+- A one-line bug fix where the problem and fix are both crystal clear
+- Updating a display label in a JSX file
+
+---
+
+
 ## The Team — Two Rings
 
 ### 📰 Intelligence Ring
